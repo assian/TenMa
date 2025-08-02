@@ -1,0 +1,17 @@
+[
+  {
+    "name": "51155.cc",
+    "active": true,
+    "baseUrl": "https://www.51155.cc",
+    "listUrl": "https://www.51155.cc/index.php/index/index/page/${page}.html",
+    "searchUrl": "https://51155.cc/index.php/vod/search/page/${page}/wd/${query}.html",
+    "videoItemSelector": ".myui-vodlist__box",
+    "titleSelector": "a.myui-vodlist__thumb",
+    "thumbnailSelector": "a.myui-vodlist__thumb[data-original]",
+    "detailPageLinkSelector": "a.myui-vodlist__thumb",
+    "videoPlayerRegex": "\"url\":\"(.*?)\"",
+    "paginationSelector": "ul.myui-page",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "timeout": 10000
+  }
+]
