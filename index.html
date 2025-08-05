@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title data-i18n="title">VideoStream</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div id="loader" class="loader"></div>
+    <nav class="navbar">
+        <ul>
+            <li><a href="#" data-i18n="home" onclick="showSection('home')" class="active"><i class="fas fa-home"></i> Home</a></li>
+            <li><a href="#" data-i18n="favorites" onclick="showSection('favorites')"><i class="fas fa-heart"></i> Favorites</a></li>
+            <li><a href="#" data-i18n="settings" onclick="showSection('settings')"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+    </nav>
+    <main>
+        <section id="home">
+            <input type="text" id="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search...">
+            <div id="video-list"></div>
+        </section>
+        <section id="favorites" style="display: none;">
+            <div id="favorites-list"></div>
+        </section>
+        <section id="settings" style="display: none;">
+            <select id="language-selector">
+                <option value="en">English</option>
+                <option value="tr">Türkçe</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="zh">中文</option>
+            </select>
+            <button data-i18n="refreshing" onclick="updateSources()">Update Sources</button>
+            <button onclick="toggleTheme()">Toggle Theme</button>
+            <div id="current-sources"></div>
+            <select id="source-selector"></select>
+        </section>
+    </main>
+    <div id="player-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closePlayer()">&times;</span>
+            <div class="video-container">
+                <video id="video-player" controls></video></br></br>
+                <div class="player-controls">
+                    <button class="control-btn" onclick="skipVideo(-60)" title="Rewind 60 seconds">
+                        <i class="fas fa-backward"></i> 60s
+                    </button>
+                    <button class="control-btn" onclick="skipVideo(-30)" title="Rewind 30 seconds">
+                        <i class="fas fa-backward"></i> 30s
+                    </button>
+                    <button class="control-btn" onclick="skipVideo(30)" title="Forward 30 seconds">
+                        30s <i class="fas fa-forward"></i>
+                    </button>
+                    <button class="control-btn" onclick="skipVideo(60)" title="Forward 60 seconds">
+                        60s <i class="fas fa-forward"></i>
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"></script>
+    ivr.net/npm/hls.js@latest">
+</script>
+<script src="js/lang.js"></script>
+<script src="js/sources.js"></script>
+<script src="js/favorites.js"></script>
+<script src="js/player.js"></script>
+<script src="js/app.js"></script>
+<script>
+    function toggleTheme() {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark': 'light');
+    }
+
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark');
+    }
+</script>
+</body>
+</html>
