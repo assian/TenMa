@@ -1,2 +1,2 @@
 # TenMa
-NodeJS + HTML web mobile app
+JavaScript + HTML web mobile app
