@@ -4,13 +4,7 @@ function cleanUrl(url) {
 }
 
 async function playVideo(url) {
-    const modal = document.getElementById('player-modal');
-    const videoPlayer = document.getElementById('video-player');
-    const playerControls = document.querySelector('.player-controls');
-
-    
-
-    try {
+       try {
         const response = await corsFetch(url, {
             headers: {
                 'Accept': 'application/text'
@@ -19,10 +13,8 @@ async function playVideo(url) {
         const html = await response.text();
         const match = html.match(/"url":"(.*?)"/);
         if (!match) throw new Error(getTranslation('videoUrlNotFound'));
-
         const videoUrl = cleanUrl(match[1]);
         Android.playVideo(videoUrl);
         console.log('Fetched video URL:', videoUrl); // Debug the URL
-
     }
 }
