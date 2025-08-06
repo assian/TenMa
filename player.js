@@ -14,7 +14,7 @@ async function playVideo(url) {
         const match = html.match(/"url":"(.*?)"/);
         if (!match) throw new Error(getTranslation('videoUrlNotFound'));
         const videoUrl = cleanUrl(match[1]);
-        Android.playVideo(videoUrl);
+        Android.Vplay(videoUrl);
         console.log('Fetched video URL:', videoUrl); // Debug the URL
     }
 }
