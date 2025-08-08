@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title data-i18n="title">VideoStream</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <button class="nav-btn active" data-page="home" onclick="showSection('home')"><i class="fas fa-home"></i></button>
+        <button class="nav-btn" data-page="favorites" onclick="showSection('favorites')"><i class="fas fa-heart"></i></button>
+        <button class="nav-btn" data-page="settings" onclick="showSection('settings')"><i class="fas fa-cog"></i></button>
+        <button class="nav-btn-theme" id="theme-toggle" onclick="showSection('home')"><i class="fas fa-moon"></i></button>
+     </nav>
+    <main>
+        <section id="home">
+            <input type="text" id="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search...">
+            <div class="video-list-container">
+                <div id="video-list" class="video-grid"></div>
+            </div>
+        </section>
+        <section id="favorites" style="display: none;">
+            <div id="favorites-list"></div>
+        </section>
+        <section id="settings" style="display: none;">
+            <select id="language-selector">
+                <option value="en">English</option>
+                <option value="tr">Türkçe</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="zh">中文</option>
+            </select>
+            <button data-i18n="refreshing" onclick="updateSources()">Update Sources</button>
+            <div id="current-sources"></div>
+            <select id="source-selector"></select>
+        </section>
+    </main>
+    <div id="player-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closePlayer()">&times;</span>
+            <div class="video-container">
+                <video id="video-player" controls></video></br></br>
+                <div class="player-controls">
+                    <button class="control-btn" onclick="skipVideo(-60)" title="Rewind 60 seconds">
+                        <i class="fas fa-backward"></i> 60s
+                    </button>
+                    <button class="control-btn" onclick="skipVideo(-30)" title="Rewind 30 seconds">
+                        <i class="fas fa-backward"></i> 30s
+                    </button>
+                    <button class="control-btn" onclick="skipVideo(30)" title="Forward 30 seconds">
+                        30s <i class="fas fa-forward"></i>
+                    </button>
+                    <button class="control-btn" onclick="skipVideo(60)" title="Forward 60 seconds">
+                        60s <i class="fas fa-forward"></i>
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+<script src="lang.js"></script>
+<script src="sources.js"></script>
+<script src="favorites.js"></script>
+<script src="player.js"></script>
+<script src="app.js"></script>
+    <script>
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeIcon = themeToggleBtn.querySelector('i');
+
+        // Kullanıcının tercihini localStorage'dan yükle
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+
+            // İkon değiştir
+            if (document.body.classList.contains('dark-mode')) {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    </script>
+    <div id="loading-screen">
+        <div class="logo">
+            <img src="/logo.png" width="150" height="150"/>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-indeterminate"></div>
+        </div>
+        <p>
+            Loading videos...
+        </p>
+    </div>
+
+</body>
+</html>
