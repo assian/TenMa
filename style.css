@@ -1,6 +1,6 @@
 /* Varsayılan Light Tema */
 :root {
-    --primary-color: #3498db;
+    --primary-color: #ff3485;
     --secondary-color: #2980b9;
     --background-color: #f5f5f5;
     --card-color: #ffffff;
@@ -10,7 +10,7 @@
 
 /* Dark Tema */
 body.dark-mode {
-    --primary-color: #1abc9c;
+    --primary-color: #b1db76;
     --secondary-color: #16a085;
     --background-color: #121212;
     --card-color: #1e1e1e;
@@ -83,13 +83,15 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #ffffff; /* arka plan koyu */
+    background-color: #ffffff;
+    /* arka plan koyu */
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 9999;
-    transition: opacity 0.5s ease; /* fade-out efekti */
+    transition: opacity 0.5s ease;
+    /* fade-out efekti */
 }
 
 #loading-screen.hidden {
@@ -207,15 +209,16 @@ main {
 }
 
 input#search {
+    margin-bottom: 10px;
     width: 100%;
     padding: 12px 16px;
-    border: none;
-    border-radius: 12px;
+    border: 1px solid var(--primary-color);
+    border-radius: 50px;
     background: var(--card-bg);
     box-shadow: var(--card-shadow);
     font-size: 16px;
-    margin-bottom: 16px;
     transition: box-shadow 0.2s ease;
+    z-index: 999;
 }
 
 input#search:focus {
@@ -240,7 +243,7 @@ input#search:focus {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     position: relative;
     cursor: pointer;
-    display: block; /* Flex kaldırdım çünkü alt yapıda full genişlik img için daha uyumlu */
+    display: block;
     margin-bottom: 16px;
 }
 
@@ -254,13 +257,11 @@ input#search:focus {
 
 .card img {
     width: 100%;
-    height: 0;
-    padding-bottom: 140%; /* Oran korunur, istediğin yükseklik için */
-    position: relative;
-    overflow: hidden;
+    height: auto;
+    aspect-ratio: 16 / 9;
     display: block;
     object-fit: cover;
-    border-radius: 0; /* border-radius ana konteynıra verildi, resme değil */
+    border-radius: 0;
     filter: blur(8px);
     opacity: 0;
     transition: opacity 0.4s ease, filter 0.4s ease;
@@ -274,8 +275,8 @@ input#search:focus {
 .card::after {
     content: "";
     position: absolute;
-    top: 40%;
-    left: 40%;
+    top: 50%;
+    left: 50%;
     width: 30px;
     height: 30px;
     border: 3px solid rgba(0, 0, 0, 0.2);
@@ -296,6 +297,56 @@ input#search:focus {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    /* Düğmeleri hizalamak için */
+    align-items: center;
+    gap: 10px;
+    /* Düğmeler arası boşluk */
+}
+
+.play-btn {
+    position: absolute;
+    top: 8%;
+    left: 35%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 4.2rem;
+    /* İkon boyutu */
+    color: var(--primary-color);
+    /* İkon rengi */
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+.fav-btn {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    /* İkon boyutu */
+    color: var(--primary-color);
+    /* İkon rengi */
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.play-btn:hover, .fav-btn:hover {
+    color: var(--hover-color, #ff5555);
+    /* Hover rengi, varsa tanımlayın */
+    transform: scale(1.1);
+}
+
+.fav-btn.favorited {
+    color: var(--favorited-color, #ff0000);
+    /* Favori seçildiğinde renk */
+}
+
+@keyframes spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
 }
 /* ... Previous CSS remains the same until the modal section ... */
 
@@ -445,12 +496,12 @@ input#search:focus {
 }
 #settings button {
     width: 100%;
-    padding: 12px;
+    padding: 15px;
     margin-bottom: 16px;
     border: none;
     background: var(--primary-color);
     color: white;
-    border-radius: 12px;
+    border-radius: 50px;
     font-size: 16px;
     cursor: pointer;
     transition: background 0.2s ease;
@@ -463,18 +514,21 @@ input#search:focus {
 #language-selector {
     width: 100%;
     padding: 12px;
-    border: none;
-    border-radius: 12px;
+    border: 1px solid var(--primary-color);
+    border-radius: 50px;
+    color: var(--primary-color);
     background: var(--card-bg);
     box-shadow: var(--card-shadow);
+    margin-bottom: 15px;
     font-size: 16px;
 }
 
 #source-selector {
     width: 100%;
     padding: 12px;
-    border: none;
-    border-radius: 12px;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+    border-radius: 50px;
     background: var(--card-bg);
     box-shadow: var(--card-shadow);
     font-size: 16px;
@@ -529,4 +583,3 @@ input#search:focus {
         margin-bottom: 0;
     }
 }
-

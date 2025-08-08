@@ -18,7 +18,9 @@
     <main>
         <section id="home">
             <input type="text" id="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search...">
-            <div id="video-list"></div>
+            <div class="video-list-container">
+                <div id="video-list" class="video-grid"></div>
+            </div>
         </section>
         <section id="favorites" style="display: none;">
             <div id="favorites-list"></div>
@@ -92,7 +94,7 @@
     </script>
     <div id="loading-screen">
         <div class="logo">
-            <img src="https://raw.githubusercontent.com/assian/TenMa/refs/heads/main/logo.png" width="150" height="150"/>
+            <img src="/logo.png" width="150" height="150"/>
         </div>
         <div class="progress-bar">
             <div class="progress-indeterminate"></div>

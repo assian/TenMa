@@ -23,7 +23,11 @@ async function corsFetch(url, options = {}) {
 async function loadSources() {
     try {
         console.log('Fetching sources from:', SOURCES_URL);
-        const response = await corsFetch(SOURCES_URL, { headers: { 'Accept': 'application/json' } });
+        const response = await corsFetch(SOURCES_URL, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
         sources = await response.json();
 
         console.log('Sources loaded:', sources);
@@ -94,7 +98,9 @@ async function loadVideos(page) {
         console.log('Fetching video URL:', url);
 
         const response = await corsFetch(url, {
-            headers: { 'User-Agent': activeSource.userAgent },
+            headers: {
+                'User-Agent': activeSource.userAgent
+            },
             signal: AbortSignal.timeout(activeSource.timeout)
         });
 
@@ -121,7 +127,7 @@ async function loadVideos(page) {
             const card = createVideoCard(video);
             videoList.appendChild(card);
         });
-        
+
     } catch (error) {
         console.error(getTranslation('sourceFetchError', {
             status: error.message || 'Unknown'
@@ -144,12 +150,14 @@ async function searchVideos(query, page = 1) {
 
     try {
         const url = activeSource.searchUrl
-            .replace('${page}', page)
-            .replace('${query}', encodeURIComponent(query));
+        .replace('${page}', page)
+        .replace('${query}', encodeURIComponent(query));
         console.log('Fetching search URL:', url);
 
         const response = await corsFetch(url, {
-            headers: { 'User-Agent': activeSource.userAgent },
+            headers: {
+                'User-Agent': activeSource.userAgent
+            },
             signal: AbortSignal.timeout(activeSource.timeout)
         });
 
@@ -190,14 +198,14 @@ function createVideoCard(video, isFavorite = false) {
     card.dataset.video = JSON.stringify(video);
 
     card.innerHTML = `
-        <img src="${video.thumbnail}" alt="${video.title}">
-        <div class="card-content">
-            <h3>${video.title}</h3>
-            <button class="play-btn">${getTranslation('play')}</button>
-            <button class="fav-btn">
-                ${getTranslation(isFavorite ? 'removeFavorite' : 'addFavorite')}
-            </button>
-        </div>
+    <img src="${video.thumbnail}" alt="${video.title}">
+    <div class="card-content">
+    <h3>${video.title}</h3>
+    <button class="play-btn"><i class="fa-solid fa-play"></i></button>
+    <button class="fav-btn ${isFavorite ? 'favorited': ''}">
+    <i class="${isFavorite ? 'fa-solid': 'fa-regular'} fa-heart"></i>
+    </button>
+    </div>
     `;
 
     const img = card.querySelector('img');
@@ -236,12 +244,14 @@ function getCurrentPage() {
 async function addSource() {
     const url = document.getElementById('source-url').value;
     try {
-        console.log('Adding source from:', url);
-        const response = await corsFetch(url, {
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
+        console.log('Adding source from:',
+            url);
+        const response = await corsFetch(url,
+            {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
         if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         const newSource = await response.json();
         sources.push(newSource);
