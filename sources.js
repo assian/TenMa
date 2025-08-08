@@ -121,18 +121,7 @@ async function loadVideos(page) {
             const card = createVideoCard(video);
             videoList.appendChild(card);
         });
-        document.querySelectorAll('.card img').forEach(img => {
-            if (img.complete) {
-                // Eğer resim önceden yüklüyse direkt loaded ekle
-                img.classList.add('loaded');
-                img.closest('.card').classList.add('loaded'); // spinner için
-            } else {
-                img.addEventListener('load', () => {
-                    img.classList.add('loaded');
-                    img.closest('.card').classList.add('loaded'); // spinner için
-                });
-            }
-        });
+        
     } catch (error) {
         console.error(getTranslation('sourceFetchError', {
             status: error.message || 'Unknown'
@@ -198,7 +187,6 @@ function createVideoCard(video, isFavorite = false) {
     const card = document.createElement('div');
     card.className = 'card';
 
-    // Verileri data attribute olarak koyuyoruz
     card.dataset.video = JSON.stringify(video);
 
     card.innerHTML = `
@@ -212,12 +200,23 @@ function createVideoCard(video, isFavorite = false) {
         </div>
     `;
 
-    // Play butonu
+    const img = card.querySelector('img');
+
+    // Resim yüklendiğinde 'loaded' sınıfını ekle (opacity ve blur efekti için)
+    if (img.complete) {
+        img.classList.add('loaded');
+        card.classList.add('loaded'); // spinner gizlemek için
+    } else {
+        img.addEventListener('load', () => {
+            img.classList.add('loaded');
+            card.classList.add('loaded');
+        });
+    }
+
     card.querySelector('.play-btn').addEventListener('click', () => {
         playVideo(video.url);
     });
 
-    // Favori butonu
     card.querySelector('.fav-btn').addEventListener('click', () => {
         if (isFavorite) {
             removeFavorite(video.id);
