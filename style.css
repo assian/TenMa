@@ -1,66 +1,148 @@
+/* Varsayılan Light Tema */
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2980b9;
+    --background-color: #f5f5f5;
+    --card-color: #ffffff;
+    --text-color: #333333;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark Tema */
+body.dark-mode {
+    --primary-color: #1abc9c;
+    --secondary-color: #16a085;
+    --background-color: #121212;
+    --card-color: #1e1e1e;
+    --text-color: #e0e0e0;
+    --shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* Dark Mode için özel ayarlamalar */
+body.dark-mode .navbar {
+    background-color: var(--card-color);
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.6);
+}
+
+body.dark-mode .nav-btn {
+    color: #bbb;
+}
+
+body.dark-mode .nav-btn.active {
+    color: var(--primary-color);
+}
+
+body.dark-mode #search-btn {
+    background: var(--card-color);
+    border: 1px solid #444;
+    color: #ccc;
+}
+
+body.dark-mode #search-btn:hover {
+    color: var(--primary-color);
+}
+
+body.dark-mode .add-source-form,
+body.dark-mode .source-item {
+    background-color: var(--card-color);
+    box-shadow: var(--shadow);
+    border: 1px solid #333;
+}
+
+body.dark-mode input,
+body.dark-mode .add-source-form input {
+    background-color: #222;
+    color: var(--text-color);
+    border: 1px solid #444;
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    -webkit-tap-highlight-color: transparent;
-    /* Removes tap highlight on mobile */
+}
+.language-selector {
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+    margin-left: 10px;
+    cursor: pointer;
 }
 
 body {
-    background: var(--bg-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--background-color);
     color: var(--text-color);
-    transition: background 0.3s ease, color 0.3s ease;
-    overscroll-behavior: none;
-    /* Prevents overscroll bounce for app-like feel */
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+    line-height: 1.6;
 }
 
-:root {
-    --bg-color: #f5f5f5;
-    --text-color: #1a1a1a;
-    --card-bg: #ffffff;
-    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    --primary-color: #007bff;
-    --accent-color: #6200ea;
-    --modal-bg: rgba(0, 0, 0, 0.85);
-}
-
-body.dark {
-    --bg-color: #121212;
-    --text-color: #e0e0e0;
-    --card-bg: #1e1e1e;
-    --card-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
-    --primary-color: #40c4ff;
-    --accent-color: #b388ff;
-}
-
-.loader {
+#loading-screen {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--bg-color);
+    background-color: #ffffff; /* arka plan koyu */
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    z-index: 1000;
-    transition: opacity 0.3s ease;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.5s ease; /* fade-out efekti */
 }
 
-.loader::after {
-    content: '';
-    width: 36px;
-    height: 36px;
-    border: 4px solid var(--text-color);
-    border-top: 4px solid transparent;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+#loading-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
+logo-text {
+    font-size: 28px;
+    font-weight: bold;
+    color: #3498db;
+    margin-bottom: 30px;
+}
+
+.progress-bar {
+    position: relative;
+    width: 80%;
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 20px;
+}
+
+.progress-indeterminate {
+    position: absolute;
+    height: 100%;
+    width: 40%;
+    background-color: #d487c7;
+    animation: slide 1.5s ease-in-out infinite;
+    border-radius: 2px;
+}
+
+@keyframes slide {
+    0% {
+        left: -40%;
+    }
+    50% {
+        left: 30%;
+        width: 60%;
+    }
+    100% {
+        left: 100%;
+        width: 40%;
+    }
+}
+
+#loading-screen p {
+    font-size: 16px;
+    color: #d487c7;
+    margin-top: 10px;
+}
+/* Loading Animations */
 @keyframes spin {
     0% {
         transform: rotate(0deg);
@@ -70,59 +152,51 @@ body.dark {
     }
 }
 
+
 .navbar {
+    align-items: center;
     position: fixed;
     bottom: 0;
-    /* Move navbar to bottom for mobile app feel */
-    top: auto;
     width: 100%;
-    background: var(--card-bg);
-    padding: 12px 16px;
-    box-shadow: var(--card-shadow);
-    z-index: 10;
     display: flex;
     justify-content: space-around;
+    background-color: var(--card-color);
+    padding: 1px 0;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 100;
     align-items: center;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
+    padding: 10px;
+    left: 10px;
+    border-radius: 40px;
+    margin: 10px auto;
+    max-width: 95%;
+}
+.nav-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #777;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: color 0.3s;
 }
 
-.navbar select {
-    display: none;
-    /* Hide language selector for now; can be moved to settings */
+.nav-btn.active {
+    color: var(--primary-color);
 }
 
-.navbar ul {
-    display: flex;
-    justify-content: space-around;
-    width: 100%;
-    margin: 0;
-    padding: 0;
+.nav-btn-theme {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #777;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: color 0.3s;
 }
 
-.navbar ul li {
-    flex: 1;
-    text-align: center;
-}
-
-.navbar a {
-    color: var(--text-color);
-    text-decoration: none;
-    font-size: 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px;
-    transition: color 0.2s ease;
-}
-
-.navbar a.active {
-    color: var(--accent-color);
-}
-
-.navbar a i {
-    font-size: 20px;
-    margin-bottom: 4px;
+.nav-btn-theme.active {
+    color: var(--primary-color);
 }
 
 main {
