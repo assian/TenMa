@@ -121,7 +121,18 @@ async function loadVideos(page) {
             const card = createVideoCard(video);
             videoList.appendChild(card);
         });
-
+        document.querySelectorAll('.card img').forEach(img => {
+            if (img.complete) {
+                // Eğer resim önceden yüklüyse direkt loaded ekle
+                img.classList.add('loaded');
+                img.closest('.card').classList.add('loaded'); // spinner için
+            } else {
+                img.addEventListener('load', () => {
+                    img.classList.add('loaded');
+                    img.closest('.card').classList.add('loaded'); // spinner için
+                });
+            }
+        });
     } catch (error) {
         console.error(getTranslation('sourceFetchError', {
             status: error.message || 'Unknown'
