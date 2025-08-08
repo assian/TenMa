@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Kaynakları yükleme ve otomatik güncelleme başlatma
     loadSources().then(() => {
         loadVideos(1);
-        loader.style.display = 'none';
+        window.loaderManager.hide();
     });
 
     // Sonsuz scroll
