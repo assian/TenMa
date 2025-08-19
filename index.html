@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenma Video Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff3485',
+                        accent: '#0ea5e9',
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                        },
+                        light: {
+                            100: '#f1f5f9',
+                            200: '#ffffff',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .video-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .video-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 16px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .video-container:hover .video-controls,
+        .video-container:focus-within .video-controls,
+        .show-controls .video-controls {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: #ff3485;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .controls-left, .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .control-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.0rem;
+            width: 40px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+        
+        .control-btn.play-pause {
+            background: #ff3485;
+        }
+        
+        .control-btn.play-pause:hover {
+            background: #ff5b9c;
+            transform: scale(1.05);
+        }
+        
+        .time-display {
+            position: absolute;
+            left: 15px;
+            bottom: 70px;
+            color: white;
+            font-size: 0.6rem;
+            font-family: monospace;
+        }
+        
+        .video-title {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .video-container:hover .video-title,
+        .show-controls .video-title {
+            opacity: 1;
+        }
+        
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100px;
+        }
+        
+        .volume-slider {
+            width: 60px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .fullscreen-btn {
+            margin-left: auto;
+        }
+        
+        .skip-btn {
+            background: rgba(14, 165, 233, 0.3);
+        }
+        
+        .skip-btn:hover {
+            background: rgba(14, 165, 233, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 min-h-screen pb-8 overflow-x-hidden">
+    <!-- Header -->
+    <header class="sticky top-0 z-10 flex items-center px-4 py-3 gap-3 bg-light-200 dark:bg-dark-800 shadow-md w-full flex-wrap">
+        <div class="logo w-6 h-7 bg-[url('logo.png')] bg-cover text-accent whitespace-nowrap">
+        </div>
+        <select id="sourcePicker" style="width:45%;" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded px-3 py-1.5 cursor-pointer text-base max-w-[70%] truncate"></select>
+        <button id="btn-refresh" title="Yenile" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10 hover:scale-110">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+        <button id="toggleSearch" title="Ara" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10 hover:scale-110">
+            <i class="fas fa-search"></i>
+        </button>
+        <button id="btn-theme" title="Koyu Tema" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10 hover:scale-110">
+            <i class="fas fa-moon"></i>
+        </button>
+    </header>
+
+    <!-- Search Container -->
+    <div id="searchContainer" class="fixed top-0 left-0 w-full bg-light-200 dark:bg-dark-800 p-4 shadow-lg transform -translate-y-full transition-transform z-20 flex gap-3">
+        <input type="text" id="q" placeholder="Ara..." class="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 text-base">
+        <button id="btn-search" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10">
+            <i class="fas fa-search"></i>
+        </button>
+    </div>
+
+    <!-- Main Content -->
+    <div id="listContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 p-5 w-full box-border">
+        <!-- Cards will be dynamically inserted here -->
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingMore" class="hidden text-center py-8">
+        <div class="w-10 h-10 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-3"></div>
+        <div>
+            Yükleniyor...
+        </div>
+    </div>
+
+    <!-- Sentinel for infinite scroll -->
+    <div id="sentinel"></div>
+
+    <!-- Enhanced Video Player Overlay -->
+    <div id="playerOverlay" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4">
+        <div class="relative w-full max-w-5xl">
+            <button id="closePlayer" class="absolute top-4 right-4 z-50 bg-black/50 text-white text-2xl w-10 h-10 flex items-center justify-center rounded-full transition hover:bg-black/80">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div id="videoContainer" class="video-container">
+                <div class="video-title" id="videoTitle">Video Başlığı</div>
+                <video id="video" class="w-full" playsinline poster=""></video>
+                
+                <div class="video-controls">
+                    <div id="progress-container" class="progress-container">
+                        <div id="progressBar" class="progress-bar"></div>
+                    </div>
+                    
+                    <div class="controls-row">
+                        <div class="controls-left">
+                            <button id="playPause" class="control-btn play-pause" title="Oynat/Duraklat">
+                                <i id="playIcon" class="fas fa-play"></i>
+                            </button>
+                            
+                            <button id="skipBackward" class="control-btn skip-btn" title="30 saniye geri">
+                                <i class="fas fa-backward"></i>
+                            </button>
+                            
+                            <button id="skipForward" class="control-btn skip-btn" title="30 saniye ileri">
+                                <i class="fas fa-forward"></i>
+                            </button>
+                            
+                            <div class="volume-container">
+                                <button id="volumeBtn" class="control-btn" title="Ses">
+                                    <i class="fas fa-volume-up"></i>
+                                </button>
+                                <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.01" value="1">
+                            </div>
+                            
+                            <div class="time-display">
+                                <span id="currentTime">00:00</span> / <span id="totalTime">00:00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="controls-right">
+                            <button id="fullscreenBtn" class="control-btn fullscreen-btn" title="Tam Ekran">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Scripts -->
+    <script>
+        
+        
+        /* ======================== CONFIG & HELPERS ======================== */
+        let progressUpdateInterval;
+        const SOURCES_URL = 'https://raw.githubusercontent.com/assian/TenMa_Sources/refs/heads/main/sources.json';
+        const CORS_PROXY = 'https://api.codetabs.com/v1/proxy?quest=';
+        const MAX_DETAIL_CONCURRENCY = 4;
+
+        const el = id => document.getElementById(id);
+
+        // Elementleri tanımla
+        const listContainer = el('listContainer');
+        const searchContainer = el('searchContainer');
+        const toggleSearchBtn = el('toggleSearch');
+
+        async function corsFetch(url, opts = {}) {
+            try {
+                const res = await fetch(CORS_PROXY + encodeURIComponent(url), opts);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res;
+            } catch(e) {
+                const res2 = await fetch(url, opts);
+                if (!res2.ok) throw new Error('HTTP ' + res2.status);
+                return res2;
+            }
+        }
+
+        /* ======================== SEARCH FUNCTIONALITY ======================== */
+        function toggleSearch() {
+            searchContainer.classList.toggle('translate-y-0');
+            searchContainer.classList.toggle('-translate-y-full');
+            if (searchContainer.classList.contains('translate-y-0')) {
+                el('q').focus();
+            }
+        }
+
+        function closeSearch() {
+            searchContainer.classList.add('-translate-y-full');
+            searchContainer.classList.remove('translate-y-0');
+        }
+
+        // Boşluğa tıklayınca arama kutusunu kapat
+        document.addEventListener('click', (e) => {
+            const isClickInsideSearch = searchContainer.contains(e.target);
+            const isClickOnToggle = toggleSearchBtn.contains(e.target);
+
+            if (searchContainer.classList.contains('translate-y-0') &&
+                !isClickInsideSearch &&
+                !isClickOnToggle) {
+                closeSearch();
+            }
+        });
+
+        // ESC tuşuyla arama kutusunu kapat
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeSearch();
+            }
+        });
+
+        /* ======================== SOURCE MANAGEMENT ======================== */
+        let APP_SOURCES = [];
+        let currentSource = null;
+        let currentPage = 1;
+        let loading = false;
+        let ended = false;
+        let searchMode = false;
+        let searchQuery = '';
+
+        async function loadSources() {
+            try {
+                const r = await corsFetch(SOURCES_URL,
+                    {
+                        headers: {
+                            Accept: 'application/json'
+                        }
+                    });
+                const json = await r.json();
+                if (!Array.isArray(json) || json.length === 0) throw new Error('Empty manifest');
+                return json;
+            } catch(e) {
+                console.warn('Sources yüklenemedi', e);
+                return [{
+                    name: 'Örnek Kaynak',
+                    baseUrl: 'https://example.com',
+                    listUrl: 'https://example.com/list?page=${page}',
+                    videoItemSelector: 'a',
+                    titleSelector: 'a',
+                    thumbnailSelector: 'img'
+                }];
+            }
+        }
+
+        function makeAbsolute(href, base) {
+            if (!href) return null;
+            href = href.trim();
+
+            if (/^(https?:)?\/\//i.test(href)) {
+                return href.replace(/(?<!:)\/+/g, '/');
+            }
+
+            const combined = (base || '').replace(/\/+$/, '') + '/' + href.replace(/^\/+/, '');
+            return combined.replace(/(?<!:)\/+/g, '/');
+        }
+
+        function renderSourcePicker(sources) {
+            const sel = el('sourcePicker');
+            sel.innerHTML = '';
+            sources.forEach((s, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = s.name || ('source-' + i);
+                sel.appendChild(opt);
+            });
+        }
+
+        /* ======================== CONTENT FETCHING ======================== */
+        function parseItemsFromHtml(htmlText, src) {
+            const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+            const selector = src.videoItemSelector || 'a';
+            const nodes = Array.from(doc.querySelectorAll(selector));
+            return nodes.map(node => {
+                const link = src.detailPageLinkSelector ?
+                node.querySelector(src.detailPageLinkSelector):
+                node.querySelector('a') || node;
+
+                const href = link?.getAttribute('href') || link?.dataset?.href || 'no-id';
+                const titleNode = node.querySelector(src.titleSelector) ||
+                node.querySelector('h3') ||
+                node.querySelector('a') ||
+                node;
+
+                const thumbNode = node.querySelector(src.thumbnailSelector) ||
+                node.querySelector('img');
+
+                const thumb = thumbNode ?
+                (thumbNode.dataset?.original || thumbNode.getAttribute('src')):
+                null;
+
+                return {
+                    id: href,
+                    title: (titleNode?.title) || (titleNode?.textContent || '').trim() || href,
+                    thumbnail: thumb || null,
+                    url: makeAbsolute(href, src.baseUrl || ''),
+                    baseUrl: src.baseUrl || ''
+                };
+            }).filter(Boolean);
+        }
+
+        async function apiGetList(src, page = 1) {
+            if (!src) throw new Error('Source missing');
+            const url = (src.listUrl || '').replace('${page}', page);
+            const res = await corsFetch(url, {
+                headers: {
+                    'User-Agent': src.userAgent || 'Mozilla/5.0'
+                }
+            });
+            const html = await res.text();
+            const items = parseItemsFromHtml(html, src);
+            return {
+                source: src.name || null,
+                page,
+                items
+            };
+        }
+
+        async function apiSearch(src, query = '', page = 1) {
+            if (!src) throw new Error('Source missing');
+            if (!src.searchUrl) throw new Error('Search not supported by this source');
+
+            const encQuery = encodeURIComponent(String(query || ''));
+            const pageStr = String(page);
+
+            let url = src.searchUrl
+            .replace(/\$\{query\}/g, encQuery)
+            .replace(/\{query\}/g, encQuery)
+            .replace(/\%s/g, encQuery)
+            .replace(/\$\{page\}/g, pageStr)
+            .replace(/\{page\}/g, pageStr);
+
+            if (!/\$\{query\}|\{query\}|\%s/.test(src.searchUrl)) {
+                url += (url.includes('?') ? '&': '?') + 'q=' + encQuery;
+            }
+
+            if (!/\$\{page\}|\{page\}/.test(src.searchUrl) && page > 1) {
+                url += (url.includes('?') ? '&': '?') + 'page=' + pageStr;
+            }
+
+            const res = await corsFetch(url, {
+                headers: {
+                    'User-Agent': src.userAgent || 'Mozilla/5.0'
+                }
+            });
+            const html = await res.text();
+            const items = parseItemsFromHtml(html, src);
+            return {
+                source: src.name || null,
+                page,
+                query,
+                items,
+                rawUrl: url
+            };
+        }
+
+        /* ======================== DETAIL FETCHING ======================== */
+        const detailQueue = [];
+        let detailActive = 0;
+
+        function enqueueDetailFetch(task) {
+            return new Promise((resolve, reject) => {
+                detailQueue.push({
+                    task, resolve, reject
+                });
+                processDetailQueue();
+            });
+        }
+
+        function processDetailQueue() {
+            if (detailActive >= MAX_DETAIL_CONCURRENCY) return;
+            const item = detailQueue.shift();
+            if (!item) return;
+            detailActive++;
+            item.task().then(res => {
+                detailActive--;
+                item.resolve(res);
+                processDetailQueue();
+            }).catch(err => {
+                detailActive--;
+                item.reject(err);
+                processDetailQueue();
+            });
+        }
+
+        function normalizeVideoUrl(url, baseUrl) {
+            if (!url) return null;
+            let u = url.trim();
+            u = u.replace(/\\+/g, '/').replace(/\/+/g, '/');
+            u = u.replace(/^https?:\//i, match => match.endsWith('//') ? match : match + '/');
+
+                if (/^https?:\/\//i.test(u)) return u;
+                if (/^\/\//.test(u)) return 'https:' + u;
+                if (baseUrl) {
+                    let base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1): baseUrl;
+                    let path = u.startsWith('/') ? u: '/' + u;
+                    return base + path;
+                }
+                return u;
+            }
+
+            async function extractVideoUrlFromPage(html, src, baseUrl) {
+                const regexKey = src.videoUrlRegex || src.videoPlayerRegex || src.videoRegex;
+                if (regexKey) {
+                    try {
+                        const regex = new RegExp(regexKey, 'i');
+                        const matches = html.match(regex);
+                        if (matches && matches[1]) {
+                            return normalizeVideoUrl(matches[1], baseUrl);
+                        }
+                    } catch(e) {
+                        console.error('Regex error', e);
+                    }
+                }
+
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+
+                // Check iframes
+                const iframes = Array.from(doc.querySelectorAll('iframe'));
+                for (const iframe of iframes) {
+                    const src = iframe.getAttribute('src');
+                    if (src && (src.includes('youtube.com') || src.includes('vimeo.com') || src.includes('dailymotion.com'))) {
+                        return makeAbsolute(src, baseUrl);
+                    }
+                }
+
+                // Check video tags
+                const videoTags = Array.from(doc.querySelectorAll('video'));
+                for (const video of videoTags) {
+                    const src = video.getAttribute('src');
+                    if (src) return makeAbsolute(src, baseUrl);
+
+                    const sourceTags = Array.from(video.querySelectorAll('source'));
+                    for (const source of sourceTags) {
+                        const src = source.getAttribute('src');
+                        if (src) return makeAbsolute(src, baseUrl);
+                    }
+                }
+
+                // Check JavaScript variables
+                const scripts = Array.from(doc.querySelectorAll('script')).map(s => s.textContent).join('\n');
+                const urlPatterns = [
+                    /(https?:\/\/[^\s'"]+\.(mp4|m3u8|webm|mov)[^\s'"]*)/gi,
+                    /file:\s*["'](https?:\/\/[^"']+)["']/gi,
+                    /source:\s*["'](https?:\/\/[^"']+)["']/gi,
+                    /src:\s*["'](https?:\/\/[^"']+)["']/gi
+                ];
+
+                for (const pattern of urlPatterns) {
+                    const matches = scripts.match(pattern);
+                    if (matches) {
+                        for (const match of matches) {
+                            const url = match.replace(/^['"]|['"]$/g, '');
+                            if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm') || url.includes('.mov')) {
+                                return makeAbsolute(url, baseUrl);
+                            }
+                        }
+                    }
+                }
+
+                // Check data attributes
+                const elementsWithData = Array.from(doc.querySelectorAll('[data-src],[data-video-src],[data-file]'));
+                for (const element of elementsWithData) {
+                    const src = element.getAttribute('data-src') ||
+                    element.getAttribute('data-video-src') ||
+                    element.getAttribute('data-file');
+                    if (src && (src.includes('.mp4') || src.includes('.m3u8'))) {
+                        return makeAbsolute(src, baseUrl);
+                    }
+                }
+
+                // Check JW Player
+                const jwPlayerMatches = scripts.match(/file\s*:\s*["'](https?:\/\/[^"']+)["']/i);
+                if (jwPlayerMatches && jwPlayerMatches[1]) {
+                    return makeAbsolute(jwPlayerMatches[1], baseUrl);
+                }
+
+                return null;
+            }
+
+            async function fetchDetailForItem(src, item) {
+                if (item._fetched) return item;
+                return enqueueDetailFetch(async () => {
+                    try {
+                        const res = await corsFetch(item.url, {
+                            headers: {
+                                'User-Agent': src.userAgent || 'Mozilla/5.0'
+                            }
+                        });
+                        const html = await res.text();
+
+                        item.realUrl = await extractVideoUrlFromPage(html, src, item.baseUrl);
+
+                        if (!item.thumbnail) {
+                            const doc = new DOMParser().parseFromString(html, 'text/html');
+                            const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+                            doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
+                            if (ogImage) {
+                                item.thumbnail = makeAbsolute(ogImage, item.baseUrl);
+                            }
+                        }
+
+                        item._fetched = true;
+                        return item;
+                    } catch(e) {
+                        console.error('Error fetching details:', e);
+                        item._fetched = true;
+                        return item;
+                    }
+                });
+            }
+
+            /* ======================== UI RENDERING ======================== */
+            const observerLazy = new IntersectionObserver((entries) => {
+                entries.forEach(ent => {
+                    if (ent.isIntersecting) {
+                        const img = ent.target;
+                        if (img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                        }
+                        observerLazy.unobserve(img);
+                    }
+                });
+            }, {
+                rootMargin: '200px'
+            });
+
+            const observerVisible = new IntersectionObserver((entries) => {
+                entries.forEach(ent => {
+                    if (ent.isIntersecting) {
+                        const card = ent.target;
+                        const idx = card.__itemIndex;
+                        if (idx != null) {
+                            const wrapper = card.__wrapper;
+                            fetchDetailForItem(wrapper.src, wrapper.item).then(updated => {
+                                if (updated.thumbnail) {
+                                    const img = card.querySelector('img');
+                                    if (img && !img.src) img.src = updated.thumbnail;
+                                }
+                            });
+                        }
+                        observerVisible.unobserve(card);
+                    }
+                });
+            }, {
+                rootMargin: '300px'
+            });
+
+            function createCard(src, item) {
+                const card = document.createElement('div');
+                card.className = 'bg-light-200 dark:bg-dark-800 rounded-lg overflow-hidden shadow-md transition-transform hover:-translate-y-1 hover:shadow-xl cursor-pointer max-w-full';
+
+                const thumb = document.createElement('div');
+                thumb.className = 'relative w-full pb-[56.25%] bg-gray-200 dark:bg-gray-700 overflow-hidden';
+
+                // Skeleton loader
+                const skeleton = document.createElement('div');
+                skeleton.className = 'skeleton absolute inset-0 bg-gray-300 dark:bg-gray-600 animate-pulse z-10';
+                thumb.appendChild(skeleton);
+
+                // Spinner container
+                const spinnerContainer = document.createElement('div');
+                spinnerContainer.className = 'spinner-container absolute inset-0 flex items-center justify-center z-20';
+                spinnerContainer.innerHTML = `
+                <div class="w-8 h-8 border-4 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+                `;
+                thumb.appendChild(spinnerContainer);
+
+                // Image with blur effect
+                const img = document.createElement('img');
+                img.className = 'absolute top-0 left-0 w-full h-full object-cover transition-all duration-500 opacity-0 blur-md';
+                img.alt = item.title || 'thumb';
+                img.dataset.src = item.thumbnail || '';
+
+                img.onload = function() {
+                    this.classList.remove('opacity-0', 'blur-md');
+                    this.classList.add('opacity-100', 'blur-none');
+                    skeleton.remove();
+                    spinnerContainer.remove();
+                };
+
+                img.onerror = function() {
+                    this.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="100%" height="100%" fill="%23f1f5f9"/><text x="50%" y="50%" fill="%23334155" font-size="18" text-anchor="middle" dy="6">No Thumb</text></svg>';
+                    skeleton.remove();
+                    spinnerContainer.remove();
+                    this.classList.remove('opacity-0', 'blur-md');
+                    this.classList.add('opacity-100');
+                };
+
+                thumb.appendChild(img);
+
+                // SVG play overlay
+                const overlay = document.createElement('div');
+                overlay.className = 'absolute inset-0 flex items-center justify-center pointer-events-none text-primary opacity-50 text-6xl transition-opacity group-hover:opacity-100';
+                overlay.innerHTML = `<i class="fas fa-play"></i>`;
+                thumb.appendChild(overlay);
+
+                const info = document.createElement('div');
+                info.className = 'p-3 overflow-hidden';
+                const t = document.createElement('h3');
+                t.className = 'font-medium text-base mb-1 line-clamp-2';
+                t.textContent = item.title || 'Untitled';
+                info.appendChild(t);
+
+                const source = document.createElement('div');
+                source.className = 'text-accent text-sm truncate';
+                source.textContent = src.name || 'Unknown source';
+                info.appendChild(source);
+
+                card.appendChild(thumb);
+                card.appendChild(info);
+
+                card.addEventListener('click', async () => {
+                    await fetchDetailForItem(src, item);
+                    openVideo(item);
+                });
+
+                observerLazy.observe(img);
+                observerVisible.observe(card);
+
+                return {
+                    el: card, img, item
+                };
+            }
+
+            function renderItemsAppend(src, items) {
+                const frag = document.createDocumentFragment();
+                items.forEach((it, i) => {
+                    const node = createCard(src, it);
+                    node.el.__itemIndex = listContainer.children.length + i;
+                    node.el.__wrapper = {
+                        src, item: it
+                    };
+                    frag.appendChild(node.el);
+                });
+                listContainer.appendChild(frag);
+            }
+
+            /* ======================== PLAYER MANAGEMENT ======================== */
+            let currentHls = null;
+            let isPlaying = false;
+            let hideControlsTimeout = null;
+            let isFullscreen = false;
+            let currentVideoItem = null;
+
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            function updateProgress() {
+                const video = el('video');
+                const progressBar = el('progressBar');
+                const currentTime = el('currentTime');
+                const totalTime = el('totalTime');
+                
+                if (video && progressBar) {
+                    const percent = (video.currentTime / video.duration) * 100;
+                    progressBar.style.width = `${percent}%`;
+                    
+                    if (currentTime && !isNaN(video.currentTime)) currentTime.textContent = formatTime(video.currentTime);
+                    if (totalTime && !isNaN(video.duration)) totalTime.textContent = formatTime(video.duration);
+                }
+            }
+
+            function showControls() {
+                const container = el('videoContainer');
+                if (!container) return;
+                
+                container.classList.add('show-controls');
+                
+                // Clear any existing timeout
+                if (hideControlsTimeout) {
+                    clearTimeout(hideControlsTimeout);
+                }
+                
+                // Hide controls after 3 seconds
+                hideControlsTimeout = setTimeout(() => {
+                    container.classList.remove('show-controls');
+                }, 3000);
+            }
+
+            async function openVideo(item) {
+                await fetchDetailForItem(currentSource, item);
+                currentVideoItem = item;
+
+                const overlay = el('playerOverlay');
+                const video = el('video');
+                const videoTitle = el('videoTitle');
+                
+                // Set video title
+                if (item.title) {
+                    videoTitle.textContent = item.title;
+                }
+
+                // Poster ayarla
+                if (item.thumbnail) {
+                    video.poster = item.thumbnail;
+                }
+
+                // Video URL'sini ayarla
+                const url = item.realUrl || item.url;
+
+                try {
+                    // Eski kaynağı temizle
+                    video.pause();
+                    video.removeAttribute('src');
+                    video.load();
+
+                    // Reset player state
+                    isPlaying = false;
+                    if (el('playIcon')) el('playIcon').className = 'fas fa-play';
+                    if (progressUpdateInterval) clearInterval(progressUpdateInterval);
+
+                    // Yeni kaynağı yükle
+                    if (url && url.match(/\.m3u8($|\?|#)/i) && Hls.isSupported()) {
+                        if (currentHls) {
+                            currentHls.destroy();
+                        }
+                        currentHls = new Hls();
+                        currentHls.loadSource(url);
+                        currentHls.attachMedia(video);
+                        currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            video.play().catch(e => console.log('Auto-play prevented', e));
+                        });
+                    } else {
+                        video.src = url;
+                        video.load();
+                        video.play().catch(e => console.log('Auto-play prevented', e));
+                    }
+
+                    overlay.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.documentElement.style.overflow = 'hidden';
+
+                    // Start progress updates
+                    progressUpdateInterval = setInterval(updateProgress, 500);
+                    
+                    // Show controls initially
+                    showControls();
+                    
+                    // Progress bar click event
+                    const progressContainer = el('progress-container');
+                    if (progressContainer) {
+                        // Önceki olay dinleyicilerini temizle
+                        progressContainer.onclick = null;
+                        progressContainer.addEventListener('click', (e) => {
+                            const rect = progressContainer.getBoundingClientRect();
+                            const pos = (e.clientX - rect.left) / rect.width;
+                            video.currentTime = pos * video.duration;
+                            updateProgress();
+                            showControls();
+                        });
+                    }
+
+                    // Video olay dinleyicileri
+                    video.onplay = () => {
+                        if (el('playIcon')) el('playIcon').className = 'fas fa-pause';
+                        isPlaying = true;
+                    };
+
+                    video.onpause = () => {
+                        if (el('playIcon')) el('playIcon').className = 'fas fa-play';
+                        isPlaying = false;
+                    };
+
+                    video.onclick = togglePlayPause;
+                    video.ontimeupdate = updateProgress;
+                    
+                } catch(e) {
+                    console.error('Player error', e);
+                    alert('Video oynatma hatası: ' + e.message);
+                }
+            }
+
+            // Player kontrol fonksiyonları
+            function togglePlayPause() {
+                const video = el('video');
+                if (!video) return;
+                
+                if (video.paused) {
+                    video.play();
+                } else {
+                    video.pause();
+                }
+                showControls();
+            }
+
+            function skipBackward() {
+                const video = el('video');
+                if (!video) return;
+                
+                video.currentTime = Math.max(0, video.currentTime - 30);
+                updateProgress();
+                showControls();
+            }
+
+            function skipForward() {
+                const video = el('video');
+                if (!video) return;
+                
+                video.currentTime = Math.min(video.duration, video.currentTime + 30);
+                updateProgress();
+                showControls();
+            }
+
+            function toggleFullscreen() {
+                const container = el('videoContainer');
+                if (!container) return;
+                
+                if (!isFullscreen) {
+                    if (container.requestFullscreen) {
+                        container.requestFullscreen();
+                    } else if (container.mozRequestFullScreen) {
+                        container.mozRequestFullScreen();
+                    } else if (container.webkitRequestFullscreen) {
+                        container.webkitRequestFullscreen();
+                    } else if (container.msRequestFullscreen) {
+                        container.msRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+                
+                isFullscreen = !isFullscreen;
+                showControls();
+            }
+
+            function setVolume(volume) {
+                const video = el('video');
+                if (!video) return;
+                
+                video.volume = volume;
+                
+                // Update volume icon
+                const volumeBtn = el('volumeBtn');
+                if (!volumeBtn) return;
+                
+                if (volume === 0) {
+                    volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                } else if (volume < 0.5) {
+                    volumeBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+                } else {
+                    volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                }
+            }
+
+            function closePlayer() {
+                const overlay = el('playerOverlay');
+                if (!overlay) return;
+                
+                overlay.style.display = 'none';
+                const v = el('video');
+                if (v) {
+                    v.pause();
+                    try {
+                        v.removeAttribute('src');
+                        v.load();
+                    } catch(e) {}
+                }
+                
+                if (currentHls) {
+                    currentHls.destroy();
+                    currentHls = null;
+                }
+                
+                document.body.style.overflow = 'auto';
+                document.documentElement.style.overflow = 'auto';
+                
+                // Temizlik
+                if (progressUpdateInterval) clearInterval(progressUpdateInterval);
+                if (el('progressBar')) el('progressBar').style.width = '0%';
+                
+                // Exit fullscreen if active
+                if (isFullscreen) {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                    isFullscreen = false;
+                }
+            }
+
+            /* ======================== APP FLOW ======================== */
+            const sentinel = el('sentinel');
+            let io = null;
+            if (sentinel) {
+                io = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting && !loading && !ended) {
+                            loadNextPage();
+                        }
+                    });
+                }, {
+                    rootMargin: '600px'
+                });
+                io.observe(sentinel);
+            }
+
+            async function loadNextPage() {
+                if (!currentSource) return;
+                loading = true;
+                if (el('loadingMore')) el('loadingMore').classList.remove('hidden');
+
+                try {
+                    let res;
+                    if (searchMode && searchQuery) {
+                        res = await apiSearch(currentSource, searchQuery, currentPage);
+                    } else {
+                        res = await apiGetList(currentSource, currentPage);
+                    }
+
+                    const items = res.items || [];
+                    if (items.length === 0) {
+                        ended = true;
+                    }
+                    renderItemsAppend(currentSource, items);
+                    currentPage++;
+                } catch(e) {
+                    console.error('Sayfa yükleme hatası', e);
+                }
+
+                loading = false;
+                if (el('loadingMore')) el('loadingMore').classList.add('hidden');
+            }
+
+            async function resetAndLoad(srcIdx, query = '') {
+                if (listContainer) listContainer.innerHTML = '';
+                currentPage = 1;
+                ended = false;
+                searchMode = false;
+                searchQuery = '';
+                currentSource = APP_SOURCES[srcIdx];
+                await loadNextPage();
+            }
+
+            async function performSearch(query) {
+                query = String(query || '').trim();
+                if (!query) {
+                    const idx = parseInt(el('sourcePicker').value || 0, 10);
+                    await resetAndLoad(idx);
+                    return;
+                }
+
+                if (listContainer) listContainer.innerHTML = '';
+                currentPage = 1;
+                ended = false;
+                searchMode = true;
+                searchQuery = query;
+
+                const idx = parseInt(el('sourcePicker').value || 0, 10);
+                currentSource = APP_SOURCES[idx];
+
+                await loadNextPage();
+                closeSearch();
+            }
+
+            /* ======================== INITIALIZATION ======================== */
+            async function main() {
+                // Tema butonu başlangıç ayarı
+                const themeBtn = el('btn-theme');
+
+                // Tema değiştirme olay dinleyicisi
+                if (themeBtn) {
+                    themeBtn.addEventListener('click', () => {
+                        const curTheme = document.documentElement.classList.contains('dark') ? 'dark': 'light';
+                        const newTheme = curTheme === 'light' ? 'dark': 'light';
+
+                        if (newTheme === 'dark') {
+                            document.documentElement.classList.add('dark');
+                            themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+                            themeBtn.title = 'Açık Tema';
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                            themeBtn.innerHTML = '<i class="fas fa-moon"></i>';
+                            themeBtn.title = 'Koyu Tema';
+                        }
+
+                        // Tema tercihini localStorage'a kaydet
+                        localStorage.setItem('theme', newTheme);
+                    });
+                }
+
+                // Kayıtlı tema tercihini yükle
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    if (themeBtn) {
+                        themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+                        themeBtn.title = 'Açık Tema';
+                    }
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    if (themeBtn) {
+                        themeBtn.innerHTML = '<i class="fas fa-moon"></i>';
+                        themeBtn.title = 'Koyu Tema';
+                    }
+                }
+
+                // Search events
+                if (el('toggleSearch')) {
+                    el('toggleSearch').addEventListener('click', toggleSearch);
+                }
+                
+                if (el('btn-search')) {
+                    el('btn-search').addEventListener('click', () => {
+                        performSearch(el('q').value.trim());
+                    });
+                }
+                
+                if (el('q')) {
+                    el('q').addEventListener('keydown', async (e) => {
+                        if (e.key === 'Enter') {
+                            performSearch(el('q').value.trim());
+                        }
+                    });
+                }
+
+                // Refresh button
+                if (el('btn-refresh')) {
+                    el('btn-refresh').addEventListener('click',
+                        async () => {
+                            if (listContainer) listContainer.innerHTML = '';
+                            currentPage = 1;
+                            ended = false;
+                            await loadNextPage();
+                        });
+                }
+
+                // Source picker
+                if (el('sourcePicker')) {
+                    el('sourcePicker').addEventListener('change',
+                        () => {
+                            resetAndLoad(parseInt(el('sourcePicker').value || 0, 10));
+                        });
+                }
+
+                // Kontrol olayları
+                if (el('closePlayer')) {
+                    el('closePlayer').addEventListener('click', closePlayer);
+                }
+                
+                if (el('playPause')) {
+                    el('playPause').addEventListener('click', togglePlayPause);
+                }
+                
+                if (el('skipBackward')) {
+                    el('skipBackward').addEventListener('click', skipBackward);
+                }
+                
+                if (el('skipForward')) {
+                    el('skipForward').addEventListener('click', skipForward);
+                }
+                
+                if (el('fullscreenBtn')) {
+                    el('fullscreenBtn').addEventListener('click', toggleFullscreen);
+                }
+
+                // Volume control
+                if (el('volumeSlider')) {
+                    el('volumeSlider').addEventListener('input', (e) => {
+                        setVolume(parseFloat(e.target.value));
+                    });
+                }
+
+                // Set initial volume
+                setVolume(1);
+
+                // Video container events to show controls
+                const videoContainer = el('videoContainer');
+                if (videoContainer) {
+                    videoContainer.addEventListener('mousemove', showControls);
+                    videoContainer.addEventListener('mouseenter', showControls);
+                }
+
+                // Load sources and start
+                APP_SOURCES = await loadSources();
+                renderSourcePicker(APP_SOURCES);
+                await resetAndLoad(0);
+            }
+
+            // Start the application
+            main().catch(e => {
+                console.error(e);
+                if (listContainer) listContainer.innerHTML = '<div class="text-center py-10 text-red-500">Hata: ' + (e.message || e) + '</div>';
+            });
+        </script>
+    </body>
+</html>
