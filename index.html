@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TenMa">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Tenma Video Player</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#ff3485',
+            accent: '#0ea5e9',
+            dark: {
+              900: '#0f172a',
+              800: '#1e293b',
+            },
+            light: {
+              100: '#f1f5f9',
+              200: '#ffffff',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    #appContent { display:none; }
+    #installPrompt, #iosPrompt { display:none; }
+
+    .card {
+      background:#fff;
+      padding:2rem;
+      border-radius:1rem;
+      box-shadow:0 4px 12px rgba(0,0,0,0.1);
+      max-width:400px;
+    }
+    .insbtn {
+      margin-top:1rem;
+      padding:0.75rem 1.5rem;
+      border:none;
+      border-radius:8px;
+      background:#0d6efd;
+      color:#fff;
+      font-size:16px;
+      cursor:pointer;
+    }
+    
+    /* Geliştirilmiş stiller */
+    .tenma-video-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .tenma-video-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+    }
+    @keyframes loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 min-h-screen pb-8 overflow-x-hidden">
+<div id="appContent">
+  <!-- Header -->
+  <header class="sticky top-0 z-10 flex items-center px-4 py-3 gap-3 bg-light-200 dark:bg-dark-800 shadow-md w-full flex-wrap">
+      <div class="logo w-6 h-7 bg-[url('logo.png')] bg-cover text-accent whitespace-nowrap"></div>
+      <select id="sourcePicker" style="width:45%;" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded px-3 py-1.5 cursor-pointer text-base max-w-[70%] truncate"></select>
+      <button id="btn-refresh" title="Yenile" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10 hover:scale-110">
+          <i class="fas fa-sync-alt"></i>
+      </button>
+      <button id="toggleSearch" title="Ara" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10 hover:scale-110">
+          <i class="fas fa-search"></i>
+      </button>
+      <button id="btn-theme" title="Koyu Tema" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10 hover:scale-110">
+          <i class="fas fa-moon"></i>
+      </button>
+  </header>
+
+  <!-- Search -->
+  <div id="searchContainer" class="fixed top-0 left-0 w-full bg-light-200 dark:bg-dark-800 p-4 shadow-lg transform -translate-y-full transition-transform z-20 flex gap-3">
+      <input type="text" id="q" placeholder="Ara..." class="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 text-base">
+      <button id="btn-search" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10">
+          <i class="fas fa-search"></i>
+      </button>
+  </div>
+
+  <!-- Content -->
+  <div id="listContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 p-5 w-full box-border"></div>
+
+  <div id="loadingMore" class="hidden text-center py-8">
+      <div class="w-10 h-10 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-3"></div>
+      <div>Yükleniyor...</div>
+  </div>
+
+  <div id="sentinel"></div>
+
+  <!-- TenmaPlayer Overlay -->
+  <div id="playerOverlay" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4">
+      <button id="closePlayer" class="absolute top-4 right-4 z-50 bg-black/50 text-white text-2xl w-10 h-10 flex items-center justify-center rounded-full transition hover:bg-black/80">
+          <i class="fas fa-times"></i>
+      </button>
+      <div class="tenma-player w-full max-w-5xl" data-src="#"></div>
+  </div>
+</div>
+
+<div id="installPrompt" class="card">
+  <h2>📲 Uygulamayı yükle</h2>
+  <p>Android cihazında yüklemek için aşağıdaki butona bas.</p>
+  <button id="installBtn" class="insbtn">Uygulamayı Yükle</button>
+</div>
+
+<div id="iosPrompt" class="card">
+  <h2>📲 Uygulamayı yükle</h2>
+  <p>Safari'de paylaş simgesine <br> <strong>(⬆️ kare ok işareti)</strong> tıkla<br>
+  ve <strong>"Ana ekrana ekle"</strong> seçeneğini seç.</p>
+</div>
+
+<script src="TenmaPlayer.js"></script>
+<script>
+  // Yardımcı fonksiyonlar ve sabitler
+  const APP_CONFIG = {
+    SOURCES_URL: 'https://raw.githubusercontent.com/assian/TenMa_Sources/refs/heads/main/sources.json',
+    CORS_PROXY: 'https://api.codetabs.com/v1/proxy?quest=',
+    MAX_DETAIL_CONCURRENCY: 4
+  };
+
+  // DOM yardımcıları
+  const el = id => document.getElementById(id);
+  const createEl = (tag, classes = '', attributes = {}) => {
+    const element = document.createElement(tag);
+    if (classes) element.className = classes;
+    Object.keys(attributes).forEach(key => {
+      element.setAttribute(key, attributes[key]);
+    });
+    return element;
+  };
+
+  // State yönetimi
+  const AppState = {
+    sources: [],
+    currentSource: null,
+    currentPage: 1,
+    isLoading: false,
+    hasEnded: false,
+    isSearchMode: false,
+    searchQuery: '',
+    observers: {
+      lazy: null,
+      visible: null,
+      sentinel: null
+    }
+  };
+
+  // Utility fonksiyonlar
+  const Utils = {
+    makeAbsolute(href, base) {
+      if (!href) return null;
+      href = href.trim();
+
+      if (/^(https?:)?\/\//i.test(href)) {
+        return href.replace(/(?<!:)\/+/g, '/');
+      }
+
+      const combined = (base || '').replace(/\/+$/, '') + '/' + href.replace(/^\/+/, '');
+      return combined.replace(/(?<!:)\/+/g, '/');
+    },
+
+    normalizeVideoUrl(url, baseUrl) {
+      if (!url) return null;
+      let u = url.trim();
+      u = u.replace(/\\+/g, '/').replace(/\/+/g, '/');
+      u = u.replace(/^https?:\//i, match => match.endsWith('//') ? match : match + '/');
+
+      if (/^https?:\/\//i.test(u)) return u;
+      if (/^\/\//.test(u)) return 'https:' + u;
+      if (baseUrl) {
+        let base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+        let path = u.startsWith('/') ? u : '/' + u;
+        return base + path;
+      }
+      return u;
+    },
+
+    debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+  };
+
+  // API İşlemleri
+  const ApiService = {
+    async corsFetch(url, opts = {}) {
+      try {
+        const res = await fetch(APP_CONFIG.CORS_PROXY + encodeURIComponent(url), opts);
+        if (res.ok) return res;
+        throw new Error('HTTP ' + res.status);
+      } catch (e) {
+        const res2 = await fetch(url, opts);
+        if (!res2.ok) throw new Error('HTTP ' + res2.status);
+        return res2;
+      }
+    },
+
+    async loadSources() {
+      try {
+        const response = await this.corsFetch(APP_CONFIG.SOURCES_URL, {
+          headers: { Accept: 'application/json' }
+        });
+        const json = await response.json();
+        if (!Array.isArray(json) || json.length === 0) throw new Error('Empty manifest');
+        return json;
+      } catch (e) {
+        console.warn('Sources yüklenemedi', e);
+        return [{
+          name: 'Örnek Kaynak',
+          baseUrl: 'https://example.com',
+          listUrl: 'https://example.com/list?page=${page}',
+          videoItemSelector: 'a',
+          titleSelector: 'a',
+          thumbnailSelector: 'img'
+        }];
+      }
+    },
+
+    parseItemsFromHtml(htmlText, source) {
+      const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+      const selector = source.videoItemSelector || 'a';
+      const nodes = Array.from(doc.querySelectorAll(selector));
+      
+      return nodes.map(node => {
+        const link = source.detailPageLinkSelector ?
+          node.querySelector(source.detailPageLinkSelector) :
+          node.querySelector('a') || node;
+
+        const href = link?.getAttribute('href') || link?.dataset?.href || 'no-id';
+        const titleNode = node.querySelector(source.titleSelector) ||
+          node.querySelector('h3') || node.querySelector('a') || node;
+
+        const thumbNode = node.querySelector(source.thumbnailSelector) ||
+          node.querySelector('img');
+
+        const thumb = thumbNode ?
+          (thumbNode.dataset?.original || thumbNode.getAttribute('src')) : null;
+
+        return {
+          id: href,
+          title: (titleNode?.title) || (titleNode?.textContent || '').trim() || href,
+          thumbnail: thumb || null,
+          url: Utils.makeAbsolute(href, source.baseUrl || ''),
+          baseUrl: source.baseUrl || ''
+        };
+      }).filter(Boolean);
+    },
+
+    async getList(source, page = 1) {
+      if (!source) throw new Error('Source missing');
+      const url = (source.listUrl || '').replace('${page}', page);
+      const res = await this.corsFetch(url, {
+        headers: { 'User-Agent': source.userAgent || 'Mozilla/5.0' }
+      });
+      const html = await res.text();
+      const items = this.parseItemsFromHtml(html, source);
+      
+      return { source: source.name, page, items };
+    },
+
+    async search(source, query = '', page = 1) {
+      if (!source) throw new Error('Source missing');
+      if (!source.searchUrl) throw new Error('Search not supported by this source');
+
+      const encQuery = encodeURIComponent(String(query || ''));
+      const pageStr = String(page);
+
+      let url = source.searchUrl
+        .replace(/\$\{query\}/g, encQuery)
+        .replace(/\{query\}/g, encQuery)
+        .replace(/\%s/g, encQuery)
+        .replace(/\$\{page\}/g, pageStr)
+        .replace(/\{page\}/g, pageStr);
+
+      if (!/\$\{query\}|\{query\}|\%s/.test(source.searchUrl)) {
+        url += (url.includes('?') ? '&' : '?') + 'q=' + encQuery;
+      }
+
+      if (!/\$\{page\}|\{page\}/.test(source.searchUrl) && page > 1) {
+        url += (url.includes('?') ? '&' : '?') + 'page=' + pageStr;
+      }
+
+      const res = await this.corsFetch(url, {
+        headers: { 'User-Agent': source.userAgent || 'Mozilla/5.0' }
+      });
+      const html = await res.text();
+      const items = this.parseItemsFromHtml(html, source);
+      
+      return {
+        source: source.name,
+        page,
+        query,
+        items,
+        rawUrl: url
+      };
+    }
+  };
+
+  // Video Detay İşlemleri
+  const DetailService = {
+    queue: [],
+    active: 0,
+
+    async extractVideoUrlFromPage(html, source, baseUrl) {
+      const regexKey = source.videoUrlRegex || source.videoPlayerRegex || source.videoRegex;
+      if (regexKey) {
+        try {
+          const regex = new RegExp(regexKey, 'i');
+          const matches = html.match(regex);
+          if (matches && matches[1]) {
+            return Utils.normalizeVideoUrl(matches[1], baseUrl);
+          }
+        } catch (e) {
+          console.error('Regex error', e);
+        }
+      }
+
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+
+      // Check iframes
+      const iframes = Array.from(doc.querySelectorAll('iframe'));
+      for (const iframe of iframes) {
+        const src = iframe.getAttribute('src');
+        if (src && (src.includes('youtube.com') || src.includes('vimeo.com') || src.includes('dailymotion.com'))) {
+          return Utils.makeAbsolute(src, baseUrl);
+        }
+      }
+
+      // Check video tags
+      const videoTags = Array.from(doc.querySelectorAll('video'));
+      for (const video of videoTags) {
+        const src = video.getAttribute('src');
+        if (src) return Utils.makeAbsolute(src, baseUrl);
+
+        const sourceTags = Array.from(video.querySelectorAll('source'));
+        for (const source of sourceTags) {
+          const src = source.getAttribute('src');
+          if (src) return Utils.makeAbsolute(src, baseUrl);
+        }
+      }
+
+      // Check JavaScript variables
+      const scripts = Array.from(doc.querySelectorAll('script')).map(s => s.textContent).join('\n');
+      const urlPatterns = [
+        /(https?:\/\/[^\s'"]+\.(mp4|m3u8|webm|mov)[^\s'"]*)/gi,
+        /file:\s*["'](https?:\/\/[^"']+)["']/gi,
+        /source:\s*["'](https?:\/\/[^"']+)["']/gi,
+        /src:\s*["'](https?:\/\/[^"']+)["']/gi
+      ];
+
+      for (const pattern of urlPatterns) {
+        const matches = scripts.match(pattern);
+        if (matches) {
+          for (const match of matches) {
+            const url = match.replace(/^['"]|['"]$/g, '');
+            if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm') || url.includes('.mov')) {
+              return Utils.makeAbsolute(url, baseUrl);
+            }
+          }
+        }
+      }
+
+      // Check data attributes
+      const elementsWithData = Array.from(doc.querySelectorAll('[data-src],[data-video-src],[data-file]'));
+      for (const element of elementsWithData) {
+        const src = element.getAttribute('data-src') ||
+          element.getAttribute('data-video-src') ||
+          element.getAttribute('data-file');
+        if (src && (src.includes('.mp4') || src.includes('.m3u8'))) {
+          return Utils.makeAbsolute(src, baseUrl);
+        }
+      }
+
+      // Check JW Player
+      const jwPlayerMatches = scripts.match(/file\s*:\s*["'](https?:\/\/[^"']+)["']/i);
+      if (jwPlayerMatches && jwPlayerMatches[1]) {
+        return Utils.makeAbsolute(jwPlayerMatches[1], baseUrl);
+      }
+
+      return null;
+    },
+
+    async fetchDetail(source, item) {
+      if (item._fetched) return item;
+      
+      return new Promise((resolve, reject) => {
+        this.queue.push({ source, item, resolve, reject });
+        this.processQueue();
+      });
+    },
+
+    async processQueue() {
+      if (this.active >= APP_CONFIG.MAX_DETAIL_CONCURRENCY || this.queue.length === 0) return;
+      
+      this.active++;
+      const { source, item, resolve, reject } = this.queue.shift();
+
+      try {
+        const res = await ApiService.corsFetch(item.url, {
+          headers: { 'User-Agent': source.userAgent || 'Mozilla/5.0' }
+        });
+        const html = await res.text();
+
+        item.realUrl = await this.extractVideoUrlFromPage(html, source, item.baseUrl);
+
+        if (!item.thumbnail) {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+            doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
+          if (ogImage) {
+            item.thumbnail = Utils.makeAbsolute(ogImage, item.baseUrl);
+          }
+        }
+
+        item._fetched = true;
+        resolve(item);
+      } catch (e) {
+        console.error('Error fetching details:', e);
+        item._fetched = true;
+        resolve(item);
+      } finally {
+        this.active--;
+        this.processQueue();
+      }
+    }
+  };
+
+  // UI İşlemleri
+  const UI = {
+    initObservers() {
+      // Lazy loading observer
+      AppState.observers.lazy = new IntersectionObserver((entries) => {
+        entries.forEach(ent => {
+          if (ent.isIntersecting) {
+            const img = ent.target;
+            if (img.dataset.src) {
+              img.src = img.dataset.src;
+              img.removeAttribute('data-src');
+            }
+            AppState.observers.lazy.unobserve(img);
+          }
+        });
+      }, { rootMargin: '200px' });
+
+      // Visibility observer
+      AppState.observers.visible = new IntersectionObserver((entries) => {
+        entries.forEach(ent => {
+          if (ent.isIntersecting) {
+            const card = ent.target;
+            const idx = card.__itemIndex;
+            if (idx != null) {
+              const wrapper = card.__wrapper;
+              DetailService.fetchDetail(wrapper.source, wrapper.item).then(updated => {
+                if (updated.thumbnail) {
+                  const img = card.querySelector('img');
+                  if (img && !img.src) img.src = updated.thumbnail;
+                }
+              });
+            }
+            AppState.observers.visible.unobserve(card);
+          }
+        });
+      }, { rootMargin: '300px' });
+
+      // Sentinel observer for infinite scroll
+      AppState.observers.sentinel = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && !AppState.isLoading && !AppState.hasEnded) {
+            AppController.loadNextPage();
+          }
+        });
+      }, { rootMargin: '600px' });
+
+      if (el('sentinel')) {
+        AppState.observers.sentinel.observe(el('sentinel'));
+      }
+    },
+
+    createVideoCard(source, item, index) {
+      const card = createEl('div', 'tenma-video-card bg-light-200 dark:bg-dark-800 rounded-lg overflow-hidden shadow-md cursor-pointer max-w-full');
+      
+      // Thumbnail container
+      const thumb = createEl('div', 'relative w-full pb-[56.25%] bg-gray-200 dark:bg-gray-700 overflow-hidden');
+      
+      // Skeleton loader
+      const skeleton = createEl('div', 'skeleton absolute inset-0 z-10');
+      thumb.appendChild(skeleton);
+      
+      // Spinner container
+      const spinnerContainer = createEl('div', 'spinner-container absolute inset-0 flex items-center justify-center z-20');
+      spinnerContainer.innerHTML = '<div class="w-8 h-8 border-4 border-accent/30 border-t-accent rounded-full animate-spin"></div>';
+      thumb.appendChild(spinnerContainer);
+      
+      // Image
+      const img = createEl('img', 'absolute top-0 left-0 w-full h-full object-cover transition-all duration-500 opacity-0 blur-md', {
+        alt: item.title || 'thumb',
+        'data-src': item.thumbnail || ''
+      });
+      
+      img.onload = function() {
+        this.classList.remove('opacity-0', 'blur-md');
+        this.classList.add('opacity-100', 'blur-none');
+        skeleton.remove();
+        spinnerContainer.remove();
+      };
+      
+      img.onerror = function() {
+        this.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="50%" y="50%" fill="#334155" font-size="18" text-anchor="middle" dy="6">No Thumb</text></svg>';
+        skeleton.remove();
+        spinnerContainer.remove();
+        this.classList.remove('opacity-0', 'blur-md');
+        this.classList.add('opacity-100');
+      };
+      
+      thumb.appendChild(img);
+      
+      // Play overlay
+      const overlay = createEl('div', 'absolute inset-0 flex items-center justify-center pointer-events-none text-primary opacity-50 text-6xl transition-opacity group-hover:opacity-100');
+      overlay.innerHTML = '<i class="fas fa-play"></i>';
+      thumb.appendChild(overlay);
+      
+      // Info section
+      const info = createEl('div', 'p-3 overflow-hidden');
+      const title = createEl('h3', 'font-medium text-base mb-1 line-clamp-2');
+      title.textContent = item.title || 'Untitled';
+      info.appendChild(title);
+      
+      const sourceInfo = createEl('div', 'text-accent text-sm truncate');
+      sourceInfo.textContent = source.name || 'Unknown source';
+      info.appendChild(sourceInfo);
+      
+      card.appendChild(thumb);
+      card.appendChild(info);
+      
+      // Event listeners
+      card.addEventListener('click', async () => {
+        await DetailService.fetchDetail(source, item);
+        PlayerController.openVideo(item);
+      });
+      
+      // Observers
+      AppState.observers.lazy.observe(img);
+      AppState.observers.visible.observe(card);
+      
+      // Store references
+      card.__itemIndex = index;
+      card.__wrapper = { source, item };
+      
+      return card;
+    },
+    
+    renderItems(source, items, clear = false) {
+      const container = el('listContainer');
+      if (clear) container.innerHTML = '';
+      
+      const fragment = document.createDocumentFragment();
+      items.forEach((item, index) => {
+        const card = this.createVideoCard(source, item, clear ? index : container.children.length + index);
+        fragment.appendChild(card);
+      });
+      
+      container.appendChild(fragment);
+    },
+    
+    toggleSearch() {
+      const searchContainer = el('searchContainer');
+      searchContainer.classList.toggle('translate-y-0');
+      searchContainer.classList.toggle('-translate-y-full');
+      
+      if (searchContainer.classList.contains('translate-y-0')) {
+        el('q').focus();
+      }
+    },
+    
+    closeSearch() {
+      const searchContainer = el('searchContainer');
+      searchContainer.classList.add('-translate-y-full');
+      searchContainer.classList.remove('translate-y-0');
+    },
+    
+    setLoading(loading) {
+      const loadingEl = el('loadingMore');
+      if (loading) {
+        loadingEl.classList.remove('hidden');
+      } else {
+        loadingEl.classList.add('hidden');
+      }
+      AppState.isLoading = loading;
+    },
+    
+    renderSourcePicker(sources) {
+      const select = el('sourcePicker');
+      select.innerHTML = '';
+      
+      sources.forEach((source, index) => {
+        const option = createEl('option', '', { value: index });
+        option.textContent = source.name || `source-${index}`;
+        select.appendChild(option);
+      });
+    }
+  };
+
+  // Oynatıcı Kontrolü
+  // Player Kontrolü
+const PlayerController = {
+    progressUpdateInterval: null,
+    isFullscreen: false,
+    
+    init() {
+        TenmaPlayer.initAll();
+        // Kapatma butonu
+        el('closePlayer').addEventListener('click', () => this.closePlayer());
+    },
+    
+openVideo(item) {
+    const overlay = el('playerOverlay');
+    const playerEl = overlay.querySelector('.tenma-player');
+    
+    // Eğer tenmaInstance yoksa, yeni bir TenmaPlayer oluştur
+    if (!playerEl.tenmaInstance) {
+        playerEl.tenmaInstance = new TenmaPlayer(playerEl, {
+            src: item.realUrl || item.url
+        });
+    } else {
+        // Varsa setSource ile kaynağı güncelle
+        playerEl.tenmaInstance.setSource(item.realUrl || item.url);
+    }
+    
+
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+},
+    
+closePlayer() {
+    const overlay = el('playerOverlay');
+    if (!overlay) return;
+    
+    overlay.style.display = 'none';
+    
+    // TenmaPlayer instance'ını al ve destroy et
+    const playerEl = overlay.querySelector('.tenma-player');
+    if (playerEl && playerEl.tenmaInstance) {
+        if (typeof playerEl.tenmaInstance.destroy === 'function') {
+            playerEl.tenmaInstance.destroy();
+        }
+        playerEl.tenmaInstance = null;
+    }
+    
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
+}
+};
+
+  // Ana Uygulama Kontrolcüsü
+  const AppController = {
+    async init() {
+      // Tema yönetimi
+      this.initTheme();
+      
+      // Olay dinleyicileri
+      this.initEventListeners();
+      
+      // Observer'ları başlat
+      UI.initObservers();
+      
+      // Kaynakları yükle
+      AppState.sources = await ApiService.loadSources();
+      UI.renderSourcePicker(AppState.sources);
+      
+      // İlk kaynağı yükle
+      await this.resetAndLoad(0);
+      
+      // Player'ı başlat
+      PlayerController.init();
+    },
+    
+    initTheme() {
+      const themeBtn = el('btn-theme');
+      const savedTheme = localStorage.getItem('theme');
+      
+      // Başlangıç temasını ayarla
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+        themeBtn.title = 'Açık Tema';
+      } else {
+        document.documentElement.classList.remove('dark');
+        themeBtn.innerHTML = '<i class="fas fa-moon"></i>';
+        themeBtn.title = 'Koyu Tema';
+      }
+      
+      // Tema değiştirme olayı
+      themeBtn.addEventListener('click', () => {
+        const curTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const newTheme = curTheme === 'light' ? 'dark' : 'light';
+        
+        if (newTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+          themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+          themeBtn.title = 'Açık Tema';
+        } else {
+          document.documentElement.classList.remove('dark');
+          themeBtn.innerHTML = '<i class="fas fa-moon"></i>';
+          themeBtn.title = 'Koyu Tema';
+        }
+        
+        localStorage.setItem('theme', newTheme);
+      });
+    },
+    
+    initEventListeners() {
+      // Arama olayları
+      el('toggleSearch').addEventListener('click', UI.toggleSearch);
+      el('btn-search').addEventListener('click', () => this.performSearch(el('q').value.trim()));
+      
+      el('q').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          this.performSearch(el('q').value.trim());
+        }
+      });
+      
+      // Boşluğa tıklayınca arama kutusunu kapat
+      document.addEventListener('click', (e) => {
+        const isClickInsideSearch = el('searchContainer').contains(e.target);
+        const isClickOnToggle = el('toggleSearch').contains(e.target);
+        
+        if (el('searchContainer').classList.contains('translate-y-0') &&
+            !isClickInsideSearch && !isClickOnToggle) {
+          UI.closeSearch();
+        }
+      });
+      
+      // ESC tuşuyla arama kutusunu kapat
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          UI.closeSearch();
+        }
+      });
+      
+      // Yenileme butonu
+      el('btn-refresh').addEventListener('click', () => this.refreshContent());
+      
+      // Kaynak değiştirme
+      el('sourcePicker').addEventListener('change', () => {
+        this.resetAndLoad(parseInt(el('sourcePicker').value || 0, 10));
+      });
+    },
+    
+    async loadNextPage() {
+      if (!AppState.currentSource) return;
+      
+      AppState.isLoading = true;
+      UI.setLoading(true);
+      
+      try {
+        let response;
+        if (AppState.isSearchMode && AppState.searchQuery) {
+          response = await ApiService.search(AppState.currentSource, AppState.searchQuery, AppState.currentPage);
+        } else {
+          response = await ApiService.getList(AppState.currentSource, AppState.currentPage);
+        }
+        
+        const items = response.items || [];
+        if (items.length === 0) {
+          AppState.hasEnded = true;
+        }
+        
+        UI.renderItems(AppState.currentSource, items);
+        AppState.currentPage++;
+      } catch (e) {
+        console.error('Sayfa yükleme hatası', e);
+        UI.renderItems(AppState.currentSource, []);
+      }
+      
+      AppState.isLoading = false;
+      UI.setLoading(false);
+    },
+    
+    async resetAndLoad(sourceIndex, query = '') {
+      AppState.currentPage = 1;
+      AppState.hasEnded = false;
+      AppState.isSearchMode = false;
+      AppState.searchQuery = '';
+      AppState.currentSource = AppState.sources[sourceIndex];
+      
+      UI.renderItems(AppState.currentSource, [], true);
+      await this.loadNextPage();
+    },
+    
+    async performSearch(query) {
+      query = String(query || '').trim();
+      if (!query) {
+        const idx = parseInt(el('sourcePicker').value || 0, 10);
+        await this.resetAndLoad(idx);
+        return;
+      }
+      
+      AppState.currentPage = 1;
+      AppState.hasEnded = false;
+      AppState.isSearchMode = true;
+      AppState.searchQuery = query;
+      
+      const idx = parseInt(el('sourcePicker').value || 0, 10);
+      AppState.currentSource = AppState.sources[idx];
+      
+      UI.renderItems(AppState.currentSource, [], true);
+      await this.loadNextPage();
+      UI.closeSearch();
+    },
+    
+    async refreshContent() {
+      UI.renderItems(AppState.currentSource, [], true);
+      AppState.currentPage = 1;
+      AppState.hasEnded = false;
+      await this.loadNextPage();
+    }
+  };
+
+  // PWA Yükleme İşlemleri
+  const PWAInstaller = {
+    init() {
+      const appContent = el("appContent");
+      const installPrompt = el("installPrompt");
+      const installBtn = el("installBtn");
+      const iosPrompt = el("iosPrompt");
+
+      // iOS kontrol
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isInStandalone = this.isInStandaloneMode();
+
+      if (isInStandalone) {
+        // PWA içindeyse sadece içerik
+        appContent.style.display = "block";
+      } else if (!isIOS) {
+        // Android için beforeinstallprompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          installPrompt.style.display = "block";
+          installBtn.addEventListener('click', async () => {
+            e.prompt();
+            const choice = await e.userChoice;
+            console.log("Kullanıcı seçimi:", choice.outcome);
+          });
+        });
+      } else {
+        // iOS cihaz → manuel yönlendirme
+        iosPrompt.style.display = "block";
+      }
+    },
+    
+    isInStandaloneMode() {
+      return (window.matchMedia('(display-mode: standalone)').matches) || 
+             (window.navigator.standalone === true);
+    }
+  };
+
+  // Uygulamayı başlat
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Service Worker kaydı
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+    
+    // PWA yükleme prompt'u
+    PWAInstaller.init();
+    
+    // Ana uygulamayı başlat
+    try {
+      await AppController.init();
+    } catch (e) {
+      console.error('Uygulama başlatılamadı:', e);
+      if (el('listContainer')) {
+        el('listContainer').innerHTML = '<div class="text-center py-10 text-red-500">Hata: ' + (e.message || e) + '</div>';
+      }
+    }
+  });
+</script>
+</body>
+</html>
