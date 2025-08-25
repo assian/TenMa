@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TenMa">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Tenma Video Player</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css">
+  <script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          primary: '#ff3485',
+          accent: '#0ea5e9',
+          dark: {
+            900: '#0f172a',
+            800: '#1e293b',
+          },
+          light: {
+            100: '#f1f5f9',
+            200: '#ffffff',
+          }
+        }
+      }
+    }
+  }
+</script>
+  <style>
+    .nav-item.active i,
+    .nav-item.active span {
+      color: #0ea5e9;
+    }
+    .nav-item {
+      position: relative;
+      overflow: hidden;
+      flex: 1;
+      padding: 6px 0;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+      width: 5rem;
+    }
+    .nav-item:hover {
+      background-color: rgba(14, 165, 233, 0.1);
+      transform: scale(1.05);
+    }
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      transform: scale(0);
+      animation: ripple-animation 0.5s linear;
+      background-color: rgba(14, 165, 233, 0.3);
+      pointer-events: none;
+    }
+    @keyframes ripple-animation {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body class="bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 min-h-screen pb-8 overflow-x-hidden">
+  <!-- Dil Seçimi Splash Ekranı -->
+  <div id="languageSplash" class="splash-overlay">
+    <div class="splash-content">
+      <div class="text-4xl mb-4">🌐</div>
+      <h2 class="text-2xl font-bold mb-4" data-key="languageSelection">Dil Seçimi / Language Selection</h2>
+      <p class="mb-6" data-key="languageSelectionMessage">Lütfen bir dil seçin / Please select a language</p>
+      <div class="splash-buttons">
+        <button data-lang="tr" class="splash-button confirm">Türkçe</button>
+        <button data-lang="en" class="splash-button confirm">English</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 18+ Yaş Onay Splash Ekranı -->
+  <div id="ageSplash" class="splash-overlay" style="display: none;">
+    <div class="splash-content">
+      <div class="text-4xl mb-4">🔞</div>
+      <h2 class="text-2xl font-bold mb-4" data-key="ageRestriction">18+ Yaş Sınırı</h2>
+      <p class="mb-6" data-key="ageWarningMessage">Bu uygulama yetişkinlere yönelik içerikler barındırabilir. Devam etmek için 18 yaşından büyük olduğunuzu onaylamalısınız.</p>
+      <div class="splash-buttons">
+        <button id="ageConfirm" class="splash-button confirm" data-key="confirmAge">Evet, 18 Yaşından Büyüğüm</button>
+        <button id="ageCancel" class="splash-button cancel" data-key="cancelAge">Hayır, Çıkış Yap</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ayarlar Hatırlatma Splash Ekranı -->
+  <div id="settingsSplash" class="splash-overlay" style="display: none;">
+    <div class="splash-content">
+      <div class="text-4xl mb-4">⚙️</div>
+      <h2 class="text-2xl font-bold mb-4" data-key="importantReminder">Önemli Hatırlatma</h2>
+      <p class="mb-6" data-key="settingsReminderMessage">Uygulamayı düzgün kullanabilmek için lütfen ayarlar bölümünden CORS Proxy ve User Agent seçimlerinizi yapınız.</p>
+      <div class="splash-buttons">
+        <button id="settingsConfirm" class="splash-button confirm" data-key="goToSettings">Ayarlara Git</button>
+        <button id="settingsCancel" class="splash-button cancel" data-key="remindLater">Daha Sonra</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="appContent" style="display: none;">
+    <!-- Yeni Modern Header Navigation -->
+    <header class="sticky top-0 z-30 w-full bg-light-200 dark:bg-dark-800 shadow-md border-b border-gray-300 dark:border-gray-700">
+      <div class="flex justify-around items-center h-16">
+        <button id="btn-home" class="nav-item active text-primary dark:text-light-100">
+          <i class="fas fa-home text-xl"></i>
+          <span class="text-xs mt-1 block">Ana Sayfa</span>
+        </button>
+        <button id="btn-favorites" class="nav-item text-primary dark:text-light-100">
+          <i class="fas fa-heart text-xl"></i>
+          <span class="text-xs mt-1 block">Favoriler</span>
+        </button>
+        <button id="btn-search" class="nav-item text-primary dark:text-light-100">
+          <i class="fas fa-search text-xl"></i>
+          <span class="text-xs mt-1 block">Ara</span>
+        </button>
+        <button id="btn-history" class="nav-item text-primary dark:text-light-100">
+          <i class="fas fa-history text-xl"></i>
+          <span class="text-xs mt-1 block">Geçmiş</span>
+        </button>
+        <button id="btn-settings" class="nav-item text-primary dark:text-light-100">
+          <i class="fas fa-cog text-xl"></i>
+          <span class="text-xs mt-1 block">Ayarlar</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Search -->
+    <div id="searchContainer" class="fixed top-0 left-0 w-full bg-light-200 dark:bg-dark-800 p-4 shadow-lg transform -translate-y-full transition-transform z-50 flex gap-3">
+        <input type="text" id="searchInput" placeholder="Ara..." class="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 text-base">
+        <button id="btn-perform-search" class="bg-light-200 dark:bg-dark-800 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded p-2 cursor-pointer text-xl w-10 h-10 flex items-center justify-center transition hover:bg-accent/10">
+            <i class="fas fa-search"></i>
+        </button>
+    </div>
+
+    <!-- Page Title -->
+    <div id="pageTitle" class="px-5 py-3 text-xl font-bold"></div>
+
+    <!-- Selection Mode Controls -->
+    <div id="selectionControls" class="hidden px-5 py-3 bg-accent/10 flex items-center justify-between">
+        <div>
+            <span id="selectedCount">0 öğe seçildi</span>
+        </div>
+        <div class="flex gap-2">
+            <button id="btn-select-all" class="px-3 py-1 bg-accent text-white rounded text-sm" data-key="selectAll">Tümünü Seç</button>
+            <button id="btn-delete-selected" class="px-3 py-1 bg-red-500 text-white rounded text-sm" data-key="deleteSelected">Seçilenleri Sil</button>
+            <button id="btn-cancel-selection" class="px-3 py-1 bg-gray-500 text-white rounded text-sm" data-key="cancelSelection">İptal</button>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div id="listContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 p-5 w-full box-border"></div>
+
+    <div id="loadingMore" class="hidden text-center py-8">
+        <div class="w-10 h-10 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-3 origin-center"></div>
+    </div>
+
+    <div id="sentinel"></div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="settings-panel fixed top-0 right-0 w-80 h-full bg-light-200 dark:bg-dark-800 shadow-lg z-20 overflow-y-auto p-5">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold" data-key="settingsTitle">Ayarlar</h2>
+            <button id="btn-close-settings" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-3" data-key="sourceSelection">Kaynak Seçimi</h3>
+            <select id="sourcePicker" class="w-full bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 cursor-pointer"></select>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-3" data-key="corsProxy">CORS Proxy</h3>
+            <select id="corsProxyPicker" class="w-full bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 cursor-pointer"></select>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-3" data-key="userAgent">User Agent</h3>
+            <select id="userAgentPicker" class="w-full bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 cursor-pointer"></select>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-3" data-key="theme">Tema</h3>
+            <div class="flex gap-3">
+                <button id="btn-light-theme" class="flex-1 py-2 px-4 bg-light-100 text-dark-900 rounded border border-gray-300" data-key="lightTheme">Açık</button>
+                <button id="btn-dark-theme" class="flex-1 py-2 px-4 bg-dark-800 text-light-100 rounded border border-gray-600" data-key="darkTheme">Koyu</button>
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-3" data-key="language">Dil / Language</h3>
+            <select id="languagePicker" class="w-full bg-light-100 dark:bg-dark-900 text-primary dark:text-light-100 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 cursor-pointer">
+                <option value="tr">Türkçe</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-3" data-key="cache">Önbellek</h3>
+            <button id="btn-clear-cache" class="w-full py-2 px-4 bg-red-500 text-white rounded" data-key="clearCache">Önbelleği Temizle</button>
+        </div>
+    </div>
+
+    <!-- TenmaPlayer Overlay -->
+    <div id="playerOverlay" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4">
+        <button id="closePlayer" class="absolute top-4 right-4 z-50 bg-black/50 text-white text-2xl w-10 h-10 flex items-center justify-center rounded-full transition hover:bg-black/80">
+            <i class="fas fa-times"></i>
+        </button>
+        <div class="tenma-player w-full max-w-5xl" data-src="#"></div>
+    </div>
+
+    <!-- FAB - Yukarı Çık Butonu -->
+    <div id="fabTop" class="fab-button hidden">
+        <i class="fas fa-arrow-up"></i>
+    </div>
+  </div>
+
+  <script src="TenmaPlayer.js"></script>
+  <script src="script.js"></script>
+  <script>
+    // Dinamik aktif menü + ripple
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', function (e) {
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        this.classList.add('active');
+
+        const ripple = document.createElement('span');
+        ripple.classList.add('ripple');
+        const rect = this.getBoundingClientRect();
+        ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+        ripple.style.left = e.clientX - rect.left - (rect.width / 2) + 'px';
+        ripple.style.top = e.clientY - rect.top - (rect.height / 2) + 'px';
+        this.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 500);
+      });
+    });
+  </script>
+</body>
+</html>
