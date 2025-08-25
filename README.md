@@ -30,10 +30,15 @@ Tenma is a modern, responsive video player web application that supports multipl
 
 ### File Structure
 ├── index.html          # Main application file
+
 ├── manifest.json       # PWA manifest
+
 ├── script.js           # Main application logic
+
 ├── style.css           # Custom styles
+
 ├── sw.js              # Service worker
+
 └── TenmaPlayer.js     # Custom video player implementation
 
 ### Technologies Used
