@@ -1,7 +1,4 @@
 # Tenma Video Player
-
-## English
-
 ### Project Overview
 Tenma is a modern, responsive video player web application that supports multiple video sources. It features a clean user interface, PWA capabilities, and advanced video playback controls.
 
