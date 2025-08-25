@@ -1,80 +1,47 @@
-# Tenma Video Player Uygulaması
+# Tenma Video Player
 
-Tenma Video Player, modern web teknolojileri kullanılarak geliştirilmiş, çoklu kaynak desteğine sahip, açık kaynaklı bir video oynatma platformudur. Kullanıcıların çeşitli kaynaklardan video içeriklerine erişmesini ve sorunsuz bir şekilde izlemesini sağlar.
+## English
 
-## Öne Çıkan Özellikler
+### Project Overview
+Tenma is a modern, responsive video player web application that supports multiple video sources. It features a clean user interface, PWA capabilities, and advanced video playback controls.
 
-- 🎬 **Çoklu Kaynak Desteği**: Harici JSON konfigürasyonu ile kolayca yeni video kaynakları eklenebilir
-- 🌓 **Akıllı Tema Sistemi**: Kullanıcı tercihine göre otomatik gece/gündüz modu
-- 🔍 **Gelişmiş Arama**: Anında sonuçlarla etkili içerik keşfi
-- ♾️ **Sonsuz Kaydırma**: Kullanıcı dostu içerik keşfi için otomatik sayfa yükleme
-- 📱 **Tam Duyarlı Tasarım**: Tüm cihazlarda mükemmel görüntüleme deneyimi
-- ⚡ **Performans Optimizasyonu**: Görüntüler için lazy loading ve video detayları için paralel yükleme
+### Features
+- 🎬 Modern video player with HLS support  
+- 🌐 Multiple CORS proxy options for accessing content  
+- 📱 Responsive design and PWA support  
+- 🔍 Search functionality across video sources  
+- ❤️ Favorites and watch history  
+- ⚙️ Customizable settings (theme, language, proxies)  
+- 🌙 Dark/Light theme support  
+- 🔒 Age verification system  
+- 📖 Multi-language support (English/Turkish)  
 
-## Teknoloji Yığını
+### Installation & Setup
+1. Clone or download the project files  
+2. Serve the files through a web server (due to CORS restrictions)  
+3. Open **index.html** in a browser  
 
-- **Tailwind CSS** - Modern ve özelleştirilebilir UI bileşenleri
-- **Hls.js** - Adaptif video akışı için HLS desteği
-- **Font Awesome** - Zengin ikon seti
-- **Intersection Observer API** - Lazy loading ve sonsuz kaydırma için
-- **Modern JavaScript (ES6+)** - Async/Await, Promises, Destructuring
+### Usage
+1. Select your preferred language on first launch  
+2. Confirm you're 18+ to access adult content  
+3. Configure CORS proxy and User Agent in settings for optimal performance  
+4. Browse videos, add to favorites, or search for content  
+5. Enjoy watching with the custom video player  
 
-## Kurulum ve Kullanım
+### File Structure
 
-### Ön Koşullar
-- Modern bir web tarayıcısı (Chrome, Firefox, Edge)
+├── index.html          # Main application file ├── manifest.json       # PWA manifest ├── script.js           # Main application logic ├── style.css           # Custom styles 
+├── sw.js               # Service worker 
+└── TenmaPlayer.js      # Custom video player implementation
 
-### Başlangıç
-1. Uygulamayı kullanmak için herhangi bir kurulum gerekmez
-2. Doğrudan `index.html` dosyasını tarayıcınızda açın
-3. Kaynak seçici menüsünden bir video kaynağı seçin
+### Technologies Used
+- HTML5, CSS3, JavaScript (ES6+)  
+- Tailwind CSS for styling  
+- HLS.js for video streaming  
+- Font Awesome icons  
+- Intersection Observer API for lazy loading  
+- LocalStorage for data persistence  
 
-## Uygulama Mimarisi
-
-### Ana Bileşenler
-1. **Kaynak Yönetimi**
-   - Harici JSON'dan kaynak yükleme
-   - Dinamik kaynak seçici
-   - CORS proxy desteği
-
-2. **İçerik Yükleme Sistemi**
-   - Sayfalama desteği
-   - Paralel detay yükleme (MAX_DETAIL_CONCURRENCY)
-   - Video URL çıkarma algoritması (regex, DOM parsing, script analizi)
-
-3. **Kullanıcı Arayüzü**
-   - Dinamik kart oluşturma
-   - Lazy image loading
-   - Intersection Observer ile görünürlük yönetimi
-
-4. **Video Oynatıcı**
-   - HLS.js ile adaptif akış desteği
-   - Responsive tasarım
-   - Poster ve kontroller
-
-### Performans Optimizasyonları
-- **Lazy Loading:** Görüntüler sadece görünür alana girdiğinde yüklenir
-- **Paralel Fetching:** Video detayları eşzamanlı olarak yüklenir
-- **Önbellekleme:** Tekrar ziyaretlerde tema tercihi hatırlanır
-- **Verimli DOM:** Sadece görünür öğeler işlenir
-
-## Katkıda Bulunma
-
-Katkılarınız memnuniyetle karşılanır! Katkıda bulunmak için:
-
-1. Repoyu fork'layın
-2. Yeni bir branch oluşturun (`git checkout -b feature/AmazingFeature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Add some AmazingFeature'`)
-4. Branch'inize push yapın (`git push origin feature/AmazingFeature`)
-5. Pull Request açın
-
-
-## Teşekkürler
-
-- **Hls.js** ekibine mükemmel akış çözümü için
-- **Tailwind CSS** için modern CSS framework
-- **Font Awesome** için zengin ikon seti
-
----
-
-**Tenma Video Player** - Modern web için güçlü ve esnek video oynatma çözümü. Her türlü geri bildiriminizi bekliyoruz!
+### Browser Support
+Works best on modern browsers with ES6 support.  
+For iOS, falls back to native video player.  
