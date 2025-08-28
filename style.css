@@ -179,3 +179,31 @@ header {
 body.settings-open {
   overflow: hidden;
 }
+
+.quality-menu {
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.quality-option.selected {
+  background-color: #3b82f6;
+}
+
+.quality-btn {
+  position: relative;
+}
+
+.quality-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  background-color: #3b82f6;
+  border-radius: 50%;
+}
+.favorite.active i {
+    color: #ef4444;
+}

@@ -1,6 +1,9 @@
 /*! TenmaPlayer v1.2 | MIT License */
 class TenmaPlayer {
   constructor(container, options = {}) {
+    this.videoItem = options.item || null;
+    this.isFavorite = false;
+    this.onFavoriteToggle = null;
     this.container = container;
     this.container.tenmaInstance = this;
     this.videoSrc = options.src || container.dataset.src;
@@ -13,8 +16,10 @@ class TenmaPlayer {
     this.startTime = 0;
     this.boundEventListeners = new Map();
     this.isReady = false;
+    this.qualityLevels = [];
+    this.currentQuality = -1;
+    this.qualityMenuOpen = false;
 
-    // Event handler'ları bağlamak için
     this._onManifestParsed = this._onManifestParsed.bind(this);
     this._onLoadedMetadata = this._onLoadedMetadata.bind(this);
     this._onVideoError = this._onVideoError.bind(this);
@@ -36,18 +41,8 @@ class TenmaPlayer {
     this.container.classList.add('player-container', 'relative', 'bg-black', 'rounded-xl', 'overflow-hidden');
     this.container.innerHTML = `
       <div class="video-wrapper relative w-full max-h-[85vh] overflow-hidden">
-        <video class="w-full max-w-full  h-auto max-h-[85vh]" playsinline autoplay></video>
-        <div style="position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 48px;
-      height: 48px;
-      border: 4px solid rgba(255, 255, 255, 0.2);
-      border-top: 4px solid #3b82f6;
-      border-radius: 50%;
-      animation: loader-spin 1s linear infinite;
-      z-index: 10;" class="loader hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
+        <video class="w-full max-w-full h-auto max-h-[85vh]" playsinline autoplay></video>
+        <div class="loader hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
             w-12 h-12 border-4 border-white/30 border-t-blue-500 rounded-full animate-spin origin-center"></div>
         <div class="seek-indicator hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
                     bg-black/80 text-white px-4 py-2 rounded text-lg font-bold"></div>
@@ -65,6 +60,15 @@ class TenmaPlayer {
             <button class="forward control-btn text-white"><i class="fas fa-redo"></i></button>
           </div>
           <div class="flex space-x-3">
+            <button class="favorite control-btn text-white">
+              <i class="far fa-heart"></i>
+            </button>
+            <button class="quality control-btn text-white relative">
+              <i class="fas fa-cog"></i>
+              <div class="quality-menu absolute bottom-full right-0 mb-2 bg-black/90 rounded p-2 hidden min-w-[120px]">
+                <div class="quality-option py-1 px-2 cursor-pointer hover:bg-gray-700" data-quality="-1">Otomatik</div>
+              </div>
+            </button>
             <button class="mute control-btn text-white"><i class="fas fa-volume-up"></i></button>
             <button class="fullscreen control-btn text-white"><i class="fas fa-expand"></i></button>
           </div>
@@ -72,7 +76,35 @@ class TenmaPlayer {
       </div>`;
   }
 
+  setOnFavoriteToggle(callback) {
+    this.onFavoriteToggle = callback;
+  }
+
+  updateFavoriteButton() {
+    if (this.favoriteBtn) {
+      if (this.isFavorite) {
+        this.favoriteBtn.innerHTML = '<i class="fas fa-heart text-red-500"></i>';
+      } else {
+        this.favoriteBtn.innerHTML = '<i class="far fa-heart"></i>';
+      }
+    }
+  }
+
+  toggleFavorite() {
+    if (this.onFavoriteToggle) {
+      this.onFavoriteToggle();
+    }
+    
+    // Sadece UI güncellemesi yap, gerçek işlemi callback'e bırak
+    this.isFavorite = !this.isFavorite;
+    this.updateFavoriteButton();
+    this.showControls();
+  }
+
   cacheElements() {
+    this.qualityBtn = this.container.querySelector('.quality');
+    this.favoriteBtn = this.container.querySelector('.favorite');
+    this.qualityMenu = this.container.querySelector('.quality-menu');
     this.video = this.container.querySelector('video');
     this.playPauseBtn = this.container.querySelector('.play-pause');
     this.rewindBtn = this.container.querySelector('.rewind');
@@ -99,13 +131,51 @@ class TenmaPlayer {
       this.hls = new Hls(this.hlsConfig);
       this.hls.loadSource(this.videoSrc);
       this.hls.attachMedia(this.video);
-      this.hls.on(Hls.Events.MANIFEST_PARSED, this._onManifestParsed);
+      
+      // Kalite seviyelerini dinle
+      this.hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        this._onManifestParsed(event, data);
+        this.setupQualityLevels();
+      });
     } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
       this.video.src = this.videoSrc;
       this.video.addEventListener('loadedmetadata', this._onLoadedMetadata);
     }
 
     this.video.addEventListener('error', this._onVideoError);
+  }
+
+  setupQualityLevels() {
+    if (!this.hls) return;
+    
+    this.qualityLevels = this.hls.levels || [];
+    
+    // Kalite menüsünü güncelle
+    this.updateQualityMenu();
+  }
+
+  updateQualityMenu() {
+    if (!this.qualityMenu) return;
+    
+    // Mevcut kalite seçeneklerini temizle (Otomatik hariç)
+    const options = this.qualityMenu.querySelectorAll('.quality-option:not([data-quality="-1"])');
+    options.forEach(option => option.remove());
+    
+    // Yeni kalite seçeneklerini ekle
+    this.qualityLevels.forEach((level, index) => {
+      const option = document.createElement('div');
+      option.className = 'quality-option py-1 px-2 cursor-pointer hover:bg-gray-700';
+      option.dataset.quality = index;
+      
+      // Kalite etiketini belirle (LQ, MQ, HQ)
+      let qualityLabel = '';
+      if (level.height <= 360) qualityLabel = 'LQ';
+      else if (level.height <= 720) qualityLabel = 'MQ';
+      else qualityLabel = 'HQ';
+      
+      option.textContent = `${qualityLabel} (${level.height}p)`;
+      this.qualityMenu.appendChild(option);
+    });
   }
 
   // HLS manifest parsed event handler
@@ -360,8 +430,64 @@ class TenmaPlayer {
     this.addEventListener(this.video, 'click', clickHandler);
     this.addEventListener(this.video, 'touchend', touchEndHandler);
   }
+  
+  
+  toggleQualityMenu() {
+    this.qualityMenuOpen = !this.qualityMenuOpen;
+    if (this.qualityMenuOpen) {
+      this.qualityMenu.classList.remove('hidden');
+    } else {
+      this.qualityMenu.classList.add('hidden');
+    }
+  }
+
+  hideQualityMenu() {
+    this.qualityMenuOpen = false;
+    this.qualityMenu.classList.add('hidden');
+  }
+
+  changeQuality(qualityLevel) {
+    if (this.hls) {
+      this.hls.currentLevel = qualityLevel;
+      this.currentQuality = qualityLevel;
+      
+      // Seçili kaliteyi vurgula
+      const options = this.qualityMenu.querySelectorAll('.quality-option');
+      options.forEach(option => {
+        if (parseInt(option.dataset.quality) === qualityLevel) {
+          option.classList.add('bg-blue-600');
+        } else {
+          option.classList.remove('bg-blue-600');
+        }
+      });
+    }
+  }
+
 
   setupEventListeners() {
+    // Kalite butonu event listener
+    this.addEventListener(this.qualityBtn, 'click', (e) => {
+      e.stopPropagation();
+      this.toggleQualityMenu();
+    });
+    
+    // Kalite seçenekleri event listener
+    this.addEventListener(this.qualityMenu, 'click', (e) => {
+      if (e.target.classList.contains('quality-option')) {
+        const quality = parseInt(e.target.dataset.quality);
+        this.changeQuality(quality);
+        this.hideQualityMenu();
+      }
+    });
+    
+    // Dışarı tıklanınca menüyü kapat
+    this.addEventListener(document, 'click', () => {
+      this.hideQualityMenu();
+    });
+    
+    // Favori butonu event listener - Değiştirildi
+    this.addEventListener(this.favoriteBtn, 'click', () => this.toggleFavorite());
+    
     this.addEventListener(this.video, 'timeupdate', () => this.updateProgress());
     this.addEventListener(this.video, 'play', () => {
       this.playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';

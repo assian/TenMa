@@ -193,14 +193,8 @@ const Translations = {
 // CORS Proxy Listesi
 const CORS_PROXIES = [
   { name: "Hiçbiri (Doğrudan Bağlantı)", url: "" },
-  { name: "Cors Anywhere (Heroku)", url: "https://cors-anywhere.herokuapp.com/" },
   { name: "CodeTabs Proxy", url: "https://api.codetabs.com/v1/proxy?quest=" },
-  { name: "All Origins", url: "https://api.allorigins.win/raw?url=" },
-  { name: "CORS Proxy", url: "https://corsproxy.io/?" },
-  { name: "Cross Origin", url: "https://crossorigin.me/" },
-  { name: "CORS Bypass", url: "https://cors-bypass.herokuapp.com/" },
-  { name: "Yacdn", url: "https://yacdn.org/proxy/" },
-  { name: "Whatever Origin", url: "https://whateverorigin.org/get?url=" }
+  { name: "Test Cors", url: "https://test.cors.workers.dev/?" }
 ];
 
 // User Agent Listesi
@@ -217,7 +211,8 @@ const USER_AGENTS = [
 
 // Yardımcı fonksiyonlar ve sabitler
 const APP_CONFIG = {
-  SOURCES_URL: 'https://raw.githubusercontent.com/assian/TenMa_Sources/refs/heads/main/sources.json',
+  //SOURCES_URL: 'https://raw.githubusercontent.com/assian/TenMa_Sources/refs/heads/main/sources.json',
+  SOURCES_URL: './cn.json',
   MAX_DETAIL_CONCURRENCY: 4
 };
 
@@ -583,35 +578,54 @@ const ApiService = {
     }
   },
 
-  parseItemsFromHtml(htmlText, source) {
-    const doc = new DOMParser().parseFromString(htmlText, 'text/html');
-    const selector = source.videoItemSelector || 'a';
-    const nodes = Array.from(doc.querySelectorAll(selector));
-    
-    return nodes.map(node => {
-      const link = source.detailPageLinkSelector ?
-        node.querySelector(source.detailPageLinkSelector) :
-        node.querySelector('a') || node;
+parseItemsFromHtml(htmlText, source) {
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+  const selector = source.videoItemSelector || 'a';
+  const nodes = Array.from(doc.querySelectorAll(selector));
 
-      const href = link?.getAttribute('href') || link?.dataset?.href || 'no-id';
-      const titleNode = node.querySelector(source.titleSelector) ||
-        node.querySelector('h3') || node.querySelector('a') || node;
+  return nodes.map(node => {
+    // Detay sayfa linki
+    const link = source.detailPageLinkSelector ?
+      node.querySelector(source.detailPageLinkSelector) :
+      node.querySelector('a') || node;
 
-      const thumbNode = node.querySelector(source.thumbnailSelector) ||
-        node.querySelector('img');
+    const href = link?.getAttribute('href') || link?.dataset?.href || 'no-id';
 
-      const thumb = thumbNode ?
-        (thumbNode.dataset?.original || thumbNode.getAttribute('src')) : null;
+    // Başlık düğümü
+    const titleNode = node.querySelector(source.titleSelector) ||
+      node.querySelector('h3') ||
+      node.querySelector('a') ||
+      node;
 
-      return {
-        id: href,
-        title: (titleNode?.title) || (titleNode?.textContent || '').trim() || href,
-        thumbnail: thumb || null,
-        url: Utils.makeAbsolute(href, source.baseUrl || ''),
-        baseUrl: source.baseUrl || ''
-      };
-    }).filter(Boolean);
-  },
+    // Thumbnail düğümü
+    const thumbNode = node.querySelector(source.thumbnailSelector) ||
+      node.querySelector('img');
+
+    // Thumbnail URL'sini al ve baseUrl ile birleştir
+    let thumb = null;
+    if (thumbNode) {
+      thumb = thumbNode.dataset?.original || thumbNode.getAttribute('src');
+      // Eğer thumbnail bir URL değilse (relative path ise) baseUrl ile birleştir
+      if (thumb && !/^(https?:)?\/\//i.test(thumb)) {
+        thumb = Utils.makeAbsolute(thumb, source.baseUrl || '');
+      }
+    }
+
+    // Başlığı öncelik sırasına göre al: alt > title > textContent > href
+    const title = (titleNode?.getAttribute?.('alt')) ||
+                  (titleNode?.getAttribute?.('title')) ||
+                  (titleNode?.textContent || '').trim() ||
+                  href;
+
+    return {
+      id: href,
+      title,
+      thumbnail: thumb,
+      url: Utils.makeAbsolute(href, source.baseUrl || ''),
+      baseUrl: source.baseUrl || ''
+    };
+  }).filter(Boolean);
+},
 
   async getList(source, page = 1) {
     if (!source) throw new Error('Source missing');
@@ -687,84 +701,77 @@ const DetailService = {
   queue: [],
   active: 0,
 
-  async extractVideoUrlFromPage(html, source, baseUrl) {
-    const regexKey = source.videoUrlRegex || source.videoPlayerRegex || source.videoRegex;
-    if (regexKey) {
+// Mevcut kodda extractVideoUrlFromPage fonksiyonunu güncelle
+async extractVideoUrlFromPage(html, source, baseUrl) {
+  const regexKey = source.videoUrlRegex || source.videoPlayerRegex || source.videoRegex;
+
+  // 1. Önce regex ile yakalamayı dene (doğrudan veya iframe sayfasından)
+  if (regexKey) {
+    try {
+      const regex = new RegExp(regexKey, 'i');
+      const matches = html.match(regex);
+      if (matches && matches[1]) {
+        const url = matches[1].replace(/\\/g, '');
+        if (/\.(m3u8|mp4|webm|mov)(\?|$)/i.test(url)) {
+          return Utils.makeAbsolute(url, baseUrl);
+        }
+      }
+    } catch (e) {
+      console.error('Regex error', e);
+    }
+  }
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  // 2. Doğrudan video etiketlerini kontrol et
+  const videoTags = Array.from(doc.querySelectorAll('video, source'));
+  for (const el of videoTags) {
+    const src = el.getAttribute('src');
+    if (src && /\.(m3u8|mp4|webm|mov)(\?|$)/i.test(src)) {
+      return Utils.makeAbsolute(src, baseUrl);
+    }
+  }
+
+  // 3. Script içeriklerinden "sources" dizisindeki file alanını yakala
+  const scripts = Array.from(doc.querySelectorAll('script')).map(s => s.textContent).join('\n');
+  const sourceMatch = scripts.match(/"file"\s*:\s*"([^"]+\.(m3u8|mp4|webm|mov)[^"]*)"/i);
+  if (sourceMatch && sourceMatch[1]) {
+    return Utils.makeAbsolute(sourceMatch[1].replace(/\\/g, ''), baseUrl);
+  }
+
+  // 4. Yeni: data-hash attribute'üne sahip elementleri kontrol et
+  const dataHashElements = doc.querySelectorAll('[data-hash]');
+  for (const el of dataHashElements) {
+    const hashUrl = el.getAttribute('data-hash');
+    if (hashUrl && /\.(m3u8|mp4|webm|mov)(\?|$)/i.test(hashUrl)) {
+      return Utils.makeAbsolute(hashUrl, baseUrl);
+    }
+  }
+
+  // 5. Eğer bulunamadıysa iframe'leri tara ve içeriğine gir
+  const iframe = doc.querySelector('iframe[data-src], iframe[src]');
+  if (iframe) {
+    const iframeSrc = iframe.getAttribute('data-src') || iframe.getAttribute('src');
+    if (iframeSrc) {
+      const absoluteIframeUrl = Utils.makeAbsolute(iframeSrc, baseUrl);
       try {
-        const regex = new RegExp(regexKey, 'i');
-        const matches = html.match(regex);
-        if (matches && matches[1]) {
-          return Utils.normalizeVideoUrl(matches[1], baseUrl);
-        }
+        // Artık ApiService.corsFetch ile CORS proxy desteği kullanılıyor
+        const res = await ApiService.corsFetch(absoluteIframeUrl, {
+          headers: { 'User-Agent': source.userAgent || 'Mozilla/5.0' }
+        });
+        const iframeHtml = await res.text();
+
+        // Rekürsif şekilde tekrar aynı fonksiyonu çağır
+        const nestedVideoUrl = await this.extractVideoUrlFromPage(iframeHtml, source, absoluteIframeUrl);
+        if (nestedVideoUrl) return nestedVideoUrl;
       } catch (e) {
-        console.error('Regex error', e);
+        console.error('Iframe fetch error', e);
       }
     }
+  }
 
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-
-    // Check iframes
-    const iframes = Array.from(doc.querySelectorAll('iframe'));
-    for (const iframe of iframes) {
-      const src = iframe.getAttribute('src');
-      if (src && (src.includes('youtube.com') || src.includes('vimeo.com') || src.includes('dailymotion.com'))) {
-        return Utils.makeAbsolute(src, baseUrl);
-      }
-    }
-
-    // Check video tags
-    const videoTags = Array.from(doc.querySelectorAll('video'));
-    for (const video of videoTags) {
-      const src = video.getAttribute('src');
-      if (src) return Utils.makeAbsolute(src, baseUrl);
-
-      const sourceTags = Array.from(video.querySelectorAll('source'));
-      for (const source of sourceTags) {
-        const src = source.getAttribute('src');
-        if (src) return Utils.makeAbsolute(src, baseUrl);
-      }
-    }
-
-    // Check JavaScript variables
-    const scripts = Array.from(doc.querySelectorAll('script')).map(s => s.textContent).join('\n');
-    const urlPatterns = [
-      /(https?:\/\/[^\s'"]+\.(mp4|m3u8|webm|mov)[^\s'"]*)/gi,
-      /file:\s*["'](https?:\/\/[^"']+)["']/gi,
-      /source:\s*["'](https?:\/\/[^"']+)["']/gi,
-      /src:\s*["'](https?:\/\/[^"']+)["']/gi
-    ];
-
-    for (const pattern of urlPatterns) {
-      const matches = scripts.match(pattern);
-      if (matches) {
-        for (const match of matches) {
-          const url = match.replace(/^['"]|['"]$/g, '');
-          if (url.includes('.mp4') || url.includes('.m3u8') || url.includes('.webm') || url.includes('.mov')) {
-            return Utils.makeAbsolute(url, baseUrl);
-          }
-        }
-      }
-    }
-
-    // Check data attributes
-    const elementsWithData = Array.from(doc.querySelectorAll('[data-src],[data-video-src],[data-file]'));
-    for (const element of elementsWithData) {
-      const src = element.getAttribute('data-src') ||
-        element.getAttribute('data-video-src') ||
-        element.getAttribute('data-file');
-      if (src && (src.includes('.mp4') || src.includes('.m3u8'))) {
-        return Utils.makeAbsolute(src, baseUrl);
-      }
-    }
-
-    // Check JW Player
-    const jwPlayerMatches = scripts.match(/file\s*:\s*["'](https?:\/\/[^"']+)["']/i);
-    if (jwPlayerMatches && jwPlayerMatches[1]) {
-      return Utils.makeAbsolute(jwPlayerMatches[1], baseUrl);
-    }
-
-    return null;
-  },
+  return null;
+},
 
   async fetchDetail(source, item) {
     if (item._fetched) return item;
@@ -1169,51 +1176,90 @@ const PlayerController = {
       el('closePlayer').addEventListener('click', () => this.closePlayer());
   },
   
-  openVideo(item) {
-      const overlay = el('playerOverlay');
-      const playerEl = overlay.querySelector('.tenma-player');
+// PlayerController.openVideo fonksiyonunu güncelle
+openVideo(item) {
+  const overlay = el('playerOverlay');
+  const playerEl = overlay.querySelector('.tenma-player');
+  
+  // Kaynağın header bilgilerini al
+  const sourceHeaders = AppState.currentSource?.requiredHeaders || {};
+  
+  // iOS kontrolü
+  const isIOS = Utils.isIOS();
+  
+  if (isIOS) {
+    // iOS için özel video player
+    playerEl.innerHTML = `
+      <video 
+        controls 
+        playsinline 
+        webkit-playsinline 
+        class="w-full h-full"
+      >
+        <source src="${item.realUrl || item.url}" type="video/mp4">
+        ${Utils.translate('videoError')}
+      </video>
+    `;
+  } else if (typeof TenmaPlayer !== 'undefined') {
+    // TenmaPlayer.js yüklenmişse kullan
+    if (!playerEl.tenmaInstance) {
+      playerEl.tenmaInstance = new TenmaPlayer(playerEl, {
+        src: item.realUrl || item.url,
+        headers: sourceHeaders,
+        item: item
+      });
       
-      // iOS kontrolü
-      const isIOS = Utils.isIOS();
+      // Başlangıçta favori durumunu kontrol et
+      const isFavorite = StorageManager.isFavorite(item.id);
+      playerEl.tenmaInstance.isFavorite = isFavorite;
+      playerEl.tenmaInstance.updateFavoriteButton();
       
-      if (isIOS) {
-          // iOS için özel video player
-          playerEl.innerHTML = `
-              <video 
-                  controls 
-                  playsinline 
-                  webkit-playsinline 
-                  class="w-full h-full"
-                  src="${item.realUrl || item.url}"
-              >
-                  ${Utils.translate('videoError')}
-              </video>
-          `;
-      } else if (typeof TenmaPlayer !== 'undefined') {
-          // TenmaPlayer.js yüklenmişse kullan
-          // Eğer tenmaInstance yoksa, yeni bir TenmaPlayer oluştur
-          if (!playerEl.tenmaInstance) {
-              playerEl.tenmaInstance = new TenmaPlayer(playerEl, {
-                  src: item.realUrl || item.url
-              });
-          } else {
-              // Varsa setSource ile kaynağı güncelle
-              playerEl.tenmaInstance.setSource(item.realUrl || item.url);
-          }
+      // Favori butonu callback'ini ayarla
+      playerEl.tenmaInstance.setOnFavoriteToggle(() => {
+        StorageManager.toggleFavorite(item);
+        playerEl.tenmaInstance.isFavorite = StorageManager.isFavorite(item.id);
+        playerEl.tenmaInstance.updateFavoriteButton();
+      });
+    } else {
+      // Varsa setSource ile kaynağı ve header'ları güncelle
+      // Yeni bir örnek oluşturmak yerine mevcut örneği kullan
+      playerEl.tenmaInstance.videoItem = item;
+      playerEl.tenmaInstance.videoSrc = item.realUrl || item.url;
+      
+      // Video kaynağını güncelle
+      if (playerEl.tenmaInstance.hls) {
+        playerEl.tenmaInstance.hls.loadSource(item.realUrl || item.url);
+        playerEl.tenmaInstance.hls.attachMedia(playerEl.tenmaInstance.video);
       } else {
-          // Fallback: Native video player
-          playerEl.innerHTML = `
-              <video controls autoplay class="w-full h-full">
-                  <source src="${item.realUrl || item.url}" type="video/mp4">
-                  ${Utils.translate('videoError')}
-              </video>
-          `;
+        playerEl.tenmaInstance.video.src = item.realUrl || item.url;
       }
       
-      overlay.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-  },
+      // Favori durumunu güncelle
+      const isFavorite = StorageManager.isFavorite(item.id);
+      playerEl.tenmaInstance.isFavorite = isFavorite;
+      playerEl.tenmaInstance.updateFavoriteButton();
+      
+      // Favori butonu callback'ini ayarla
+      playerEl.tenmaInstance.setOnFavoriteToggle(() => {
+        StorageManager.toggleFavorite(item);
+        playerEl.tenmaInstance.isFavorite = StorageManager.isFavorite(item.id);
+        playerEl.tenmaInstance.updateFavoriteButton();
+      });
+    }
+  } else {
+    // Fallback: Native video player
+    playerEl.innerHTML = `
+      <video controls autoplay class="w-full h-full">
+        <source src="${item.realUrl || item.url}" type="video/mp4">
+        ${Utils.translate('videoError')}
+      </video>
+    `;
+  }
+  
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden';
+},
   
   closePlayer() {
       const overlay = el('playerOverlay');
